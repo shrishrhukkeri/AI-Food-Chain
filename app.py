@@ -1648,10 +1648,15 @@ def text_to_speech():
         return jsonify({'error': f'TTS error: {str(e)}'}), 500
 
 def prepare_farm_context(all_farms):
-    """Prepare simple farm data context"""
+    """Prepare comprehensive farm data context from CSV datasets"""
     context = []
     for farm_name, data in all_farms.items():
+        if data.empty:
+            continue
+            
         score = calculate_performance_score_from_data(data)
+        
+        # Core Performance Metrics
         yield_val = float(data['Yield_tonnes_per_ha'].mean())
         spoilage = float(data['SpoilageRate_%'].mean())
         defects = float(data['DefectRate_%'].mean())
@@ -1659,14 +1664,69 @@ def prepare_farm_context(all_farms):
         satisfaction = float(data['SatisfactionScore_0_10'].mean())
         pest_risk = float(data['PestRiskScore'].mean())
         machinery_uptime = float(data['MachineryUptime_%'].mean())
+        harvest_uptime = float(data['HarvestRobotUptime_%'].mean())
         
-        # Get crop types and their yields for this farm
+        # Production Metrics
+        soil_moisture = float(data['SoilMoisture_%'].mean())
+        temperature = float(data['Temperature_C'].mean())
+        rainfall = float(data['Rainfall_mm'].mean())
+        fertilizer = float(data['Fertilizer_kg_per_ha'].mean())
+        
+        # Storage Metrics
+        storage_temp = float(data['StorageTemperature_C'].mean())
+        humidity = float(data['Humidity_%'].mean())
+        shelf_life = float(data['PredictedShelfLife_days'].mean())
+        storage_days = float(data['StorageDays'].mean())
+        grading_score = data['GradingScore'].mode()[0] if not data['GradingScore'].mode().empty else 'N/A'
+        
+        # Processing Metrics
+        process_types = data['ProcessType'].value_counts().to_dict()
+        packaging_types = data['PackagingType'].value_counts().to_dict()
+        packaging_speed = float(data['PackagingSpeed_units_per_min'].mean())
+        
+        # Transportation Metrics
+        transport_modes = data['TransportMode'].value_counts().to_dict()
+        avg_distance = float(data['TransportDistance_km'].mean())
+        fuel_usage = float(data['FuelUsage_L_per_100km'].mean())
+        delivery_time = float(data['DeliveryTime_hr'].mean())
+        delay_percentage = float((data['DeliveryDelayFlag'].sum() / len(data)) * 100)
+        spoilage_in_transit = float(data['SpoilageInTransit_%'].mean())
+        
+        # Retail Metrics
+        inventory = float(data['RetailInventory_units'].mean())
+        sales_velocity = float(data['SalesVelocity_units_per_day'].mean())
+        pricing_index = float(data['DynamicPricingIndex'].mean())
+        
+        # Consumption Metrics
+        household_waste = float(data['HouseholdWaste_kg'].mean())
+        recipe_accuracy = float(data['RecipeRecommendationAccuracy_%'].mean())
+        
+        # Waste Management Metrics
+        waste_types = data['WasteType'].value_counts().to_dict()
+        segregation_accuracy = float(data['SegregationAccuracy_%'].mean())
+        upcycling_rate = float(data['UpcyclingRate_%'].mean())
+        biogas_output = float(data['BiogasOutput_m3'].mean())
+        
+        # Get crop types and their detailed metrics for this farm
         crop_yields = data.groupby('CropType')['Yield_tonnes_per_ha'].mean().to_dict()
         crop_spoilage = data.groupby('CropType')['SpoilageRate_%'].mean().to_dict()
         crop_waste = data.groupby('CropType')['WastePercentage_%'].mean().to_dict()
+        crop_defects = data.groupby('CropType')['DefectRate_%'].mean().to_dict()
         
-        context.append(f"{farm_name}: Score:{score:.0f} Yield:{yield_val:.1f}t/ha Spoilage:{spoilage:.1f}% Defects:{defects:.1f}% Waste:{waste:.1f}% Satisfaction:{satisfaction:.1f}/10")
-        context.append(f"  Crops: {', '.join([f'{crop} (yield:{crop_yields[crop]:.1f}t/ha, spoilage:{crop_spoilage.get(crop,0):.1f}%, waste:{crop_waste.get(crop,0):.1f}%)' for crop in crop_yields.keys()])}")
+        # Build comprehensive context
+        context.append(f"=== {farm_name} (Performance Score: {score:.0f}/100) ===")
+        context.append(f"OVERALL METRICS: Yield:{yield_val:.1f}t/ha | Spoilage:{spoilage:.1f}% | Defects:{defects:.1f}% | Waste:{waste:.1f}% | Satisfaction:{satisfaction:.1f}/10")
+        context.append(f"PRODUCTION: Soil Moisture:{soil_moisture:.1f}% | Temp:{temperature:.1f}°C | Rainfall:{rainfall:.1f}mm | Fertilizer:{fertilizer:.1f}kg/ha | Pest Risk:{pest_risk:.1f} | Machinery Uptime:{machinery_uptime:.1f}% | Harvest Robot Uptime:{harvest_uptime:.1f}%")
+        context.append(f"STORAGE: Temp:{storage_temp:.1f}°C | Humidity:{humidity:.1f}% | Shelf Life:{shelf_life:.1f} days | Storage Days:{storage_days:.1f} | Grading:{grading_score}")
+        context.append(f"PROCESSING: Main Process Types:{', '.join([f'{k}({v})' for k,v in list(process_types.items())[:3]])} | Packaging Types:{', '.join([f'{k}({v})' for k,v in list(packaging_types.items())[:3]])} | Packaging Speed:{packaging_speed:.0f} units/min")
+        context.append(f"TRANSPORTATION: Modes:{', '.join([f'{k}({v})' for k,v in list(transport_modes.items())[:3]])} | Avg Distance:{avg_distance:.1f}km | Fuel:{fuel_usage:.1f}L/100km | Delivery Time:{delivery_time:.1f}hr | Delays:{delay_percentage:.1f}% | Spoilage in Transit:{spoilage_in_transit:.2f}%")
+        context.append(f"RETAIL: Inventory:{inventory:.0f} units | Sales Velocity:{sales_velocity:.0f} units/day | Pricing Index:{pricing_index:.2f}")
+        context.append(f"CONSUMPTION: Household Waste:{household_waste:.2f}kg | Recipe Accuracy:{recipe_accuracy:.1f}%")
+        context.append(f"WASTE MANAGEMENT: Types:{', '.join([f'{k}({v})' for k,v in list(waste_types.items())[:3]])} | Segregation:{segregation_accuracy:.1f}% | Upcycling:{upcycling_rate:.1f}% | Biogas:{biogas_output:.1f}m³")
+        context.append(f"CROP BREAKDOWN:")
+        for crop in crop_yields.keys():
+            context.append(f"  - {crop}: Yield:{crop_yields[crop]:.1f}t/ha | Spoilage:{crop_spoilage.get(crop,0):.1f}% | Waste:{crop_waste.get(crop,0):.1f}% | Defects:{crop_defects.get(crop,0):.1f}%")
+        context.append("")  # Empty line between farms
     
     return "\n".join(context)
 
