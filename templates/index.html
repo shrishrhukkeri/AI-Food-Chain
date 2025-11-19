@@ -56,9 +56,18 @@
         .header-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; width: 100%; }
         .header-left { display: flex; flex-direction: column; gap: 12px; }
         .header h1 { font-size: 22px; margin: 0; white-space: nowrap; }
-        .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; }
+        .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; position: relative; }
         .header-subtitle { font-size: 14px; opacity: 0.9; white-space: nowrap; font-weight: 500; }
         .ai-badge { background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 12px; white-space: nowrap; font-weight: 500; }
+        .language-switcher { position: relative; display: inline-block; }
+        .language-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .language-btn:hover { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); }
+        .language-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 150px; z-index: 1000; display: none; overflow: hidden; }
+        .language-dropdown.show { display: block; }
+        .language-option { padding: 12px 16px; cursor: pointer; color: #2c3e50; font-size: 14px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+        .language-option:hover { background: #f5f7fa; }
+        .language-option.active { background: #1a5f7a; color: white; font-weight: 600; }
+        .language-option.active:hover { background: #0f3a4f; }
         .farm-tabs { display: flex; gap: 8px; align-items: center; }
         .farm-tab { padding: 6px 16px; background: rgba(255,255,255,0.2); border: 2px solid transparent; border-radius: 5px; cursor: pointer; transition: all 0.3s; font-weight: 600; font-size: 12px; white-space: nowrap; }
         .farm-tab:hover { background: rgba(255,255,255,0.3); }
@@ -745,112 +754,132 @@
             <div class="header-left">
             <h1>🌾 Food Supply Chain AI Platform</h1>
                 <div class="farm-tabs">
-                    <div class="farm-tab" onclick="switchFarm('all', this)">All Farms</div>
-                    <div class="farm-tab" onclick="switchFarm('FarmA', this)">Farm A</div>
-                    <div class="farm-tab" onclick="switchFarm('FarmB', this)">Farm B</div>
-                    <div class="farm-tab" onclick="switchFarm('FarmC', this)">Farm C</div>
-                    <div class="farm-tab" onclick="switchFarm('FarmD', this)">Farm D</div>
+                    <div class="farm-tab active" onclick="switchFarm('all', this)"><span data-translate="farms.all">All Farms</span></div>
+                    <div class="farm-tab" onclick="switchFarm('FarmA', this)"><span data-translate="farms.farmA">Farm A</span></div>
+                    <div class="farm-tab" onclick="switchFarm('FarmB', this)"><span data-translate="farms.farmB">Farm B</span></div>
+                    <div class="farm-tab" onclick="switchFarm('FarmC', this)"><span data-translate="farms.farmC">Farm C</span></div>
+                    <div class="farm-tab" onclick="switchFarm('FarmD', this)"><span data-translate="farms.farmD">Farm D</span></div>
         </div>
             </div>
             <div class="header-right">
-                <div class="header-subtitle">AI-Powered Analytics Dashboard</div>
-        <div class="ai-badge"><span id="header-ai-icon"></span> AI Insights Enabled</div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+                    <div class="language-switcher">
+                        <button class="language-btn" onclick="toggleLanguageDropdown()" id="language-btn">
+                            <span>🌐</span>
+                            <span id="current-language">English</span>
+                            <span>▼</span>
+                        </button>
+                        <div class="language-dropdown" id="language-dropdown">
+                            <div class="language-option active" onclick="changeLanguage('en')" data-lang="en">
+                                <span>🇬🇧</span> English
+                            </div>
+                            <div class="language-option" onclick="changeLanguage('hi')" data-lang="hi">
+                                <span>🇮🇳</span> हिंदी (Hindi)
+                            </div>
+                            <div class="language-option" onclick="changeLanguage('kn')" data-lang="kn">
+                                <span>🇮🇳</span> ಕನ್ನಡ (Kannada)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-subtitle" data-translate="header.subtitle">AI-Powered Analytics Dashboard</div>
+                <div class="ai-badge"><span id="header-ai-icon"></span> <span data-translate="header.aiEnabled">AI Insights Enabled</span></div>
             </div>
         </div>
     </div>
 
     <div class="sidebar" id="sidebar">
-        <div class="sidebar-item active" data-section="overview" onclick="showSection('overview')"><span id="sidebar-overview-icon"></span>Overview</div>
-        <div class="sidebar-item" data-section="production" onclick="showSection('production')"><span id="sidebar-production-icon"></span>Production</div>
-        <div class="sidebar-item" data-section="storage" onclick="showSection('storage')"><span id="sidebar-storage-icon"></span>Storage</div>
-        <div class="sidebar-item" data-section="processing" onclick="showSection('processing')"><span id="sidebar-processing-icon"></span>Processing</div>
-        <div class="sidebar-item" data-section="transportation" onclick="showSection('transportation')"><span id="sidebar-transportation-icon"></span>Transport</div>
-        <div class="sidebar-item" data-section="retail" onclick="showSection('retail')"><span id="sidebar-retail-icon"></span>Retail</div>
-        <div class="sidebar-item" data-section="price" onclick="showSection('price')"><span id="sidebar-price-icon"></span>Price Prediction</div>
-        <div class="sidebar-item" data-section="recommendation" onclick="showSection('recommendation')"><span id="sidebar-recommendation-icon">🎯</span>Crop Recommendation</div>
-        <div class="sidebar-item" data-section="consumption" onclick="showSection('consumption')"><span id="sidebar-consumption-icon"></span>Consumption</div>
-        <div class="sidebar-item" data-section="waste" onclick="showSection('waste')"><span id="sidebar-waste-icon"></span>Waste</div>
-        <div class="sidebar-item" data-section="security" onclick="showSection('security')"><span id="sidebar-security-icon"></span>Security</div>
+        <div class="sidebar-item active" data-section="overview" onclick="showSection('overview')"><span id="sidebar-overview-icon"></span><span data-translate="sidebar.overview">Overview</span></div>
+        <div class="sidebar-item" data-section="production" onclick="showSection('production')"><span id="sidebar-production-icon"></span><span data-translate="sidebar.production">Production</span></div>
+        <div class="sidebar-item" data-section="storage" onclick="showSection('storage')"><span id="sidebar-storage-icon"></span><span data-translate="sidebar.storage">Storage</span></div>
+        <div class="sidebar-item" data-section="processing" onclick="showSection('processing')"><span id="sidebar-processing-icon"></span><span data-translate="sidebar.processing">Processing</span></div>
+        <div class="sidebar-item" data-section="transportation" onclick="showSection('transportation')"><span id="sidebar-transportation-icon"></span><span data-translate="sidebar.transport">Transport</span></div>
+        <div class="sidebar-item" data-section="retail" onclick="showSection('retail')"><span id="sidebar-retail-icon"></span><span data-translate="sidebar.retail">Retail</span></div>
+        <div class="sidebar-item" data-section="price" onclick="showSection('price')"><span id="sidebar-price-icon"></span><span data-translate="sidebar.price">Price Prediction</span></div>
+        <div class="sidebar-item" data-section="recommendation" onclick="showSection('recommendation')" style="display: flex; align-items: center; gap: 10px;"><span id="sidebar-recommendation-icon" style="display: inline-flex; align-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="starGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:#FF6347;stop-opacity:1" /></linearGradient><linearGradient id="badgeGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea;stop-opacity:1" /><stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" /></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#badgeGrad1)"/><path d="M12 2L14.09 8.26L20 9.27L15 13.14L16.18 19.02L12 15.77L7.82 19.02L9 13.14L4 9.27L9.91 8.26L12 2Z" fill="url(#starGrad1)" stroke="#fff" stroke-width="0.5"/><path d="M10 12L11.5 13.5L14 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span data-translate="sidebar.recommendation">Crop Recommendation</span></div>
+        <div class="sidebar-item" data-section="consumption" onclick="showSection('consumption')"><span id="sidebar-consumption-icon"></span><span data-translate="sidebar.consumption">Consumption</span></div>
+        <div class="sidebar-item" data-section="waste" onclick="showSection('waste')"><span id="sidebar-waste-icon"></span><span data-translate="sidebar.waste">Waste</span></div>
+        <div class="sidebar-item" data-section="security" onclick="showSection('security')"><span id="sidebar-security-icon"></span><span data-translate="sidebar.security">Security</span></div>
     </div>
 
     <div class="container">
         <div class="main-content">
             <div id="overview" class="section active">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="overview-title-icon"></span>Farm Comparison Overview</h2><span id="overview-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="overview-title-icon"></span><span data-translate="sections.overview">Farm Comparison Overview</span></h2><span id="overview-sparkle-icon"></span></div>
                 <div id="farm-comparison-container" class="farm-comparison"></div>
                 <div class="ai-suggestion-box" id="overviewSuggestion"></div>
                 <div class="stats-row">
-                    <div class="chart-container"><h3><span id="chart1-sparkle-icon"></span>Yield Comparison</h3><div class="chart-wrapper"><canvas id="overviewChart1"></canvas></div></div>
-                    <div class="chart-container"><h3><span id="chart2-sparkle-icon"></span>Spoilage Comparison</h3><div class="chart-wrapper"><canvas id="overviewChart2"></canvas></div></div>
+                    <div class="chart-container"><h3><span id="chart1-sparkle-icon"></span><span data-translate="charts.yieldComparison">Yield Comparison</span></h3><div class="chart-wrapper"><canvas id="overviewChart1"></canvas></div></div>
+                    <div class="chart-container"><h3><span id="chart2-sparkle-icon"></span><span data-translate="charts.spoilageComparison">Spoilage Comparison</span></h3><div class="chart-wrapper"><canvas id="overviewChart2"></canvas></div></div>
                 </div>
                 <div class="stats-row">
-                    <div class="chart-container"><h3><span id="chart3-sparkle-icon"></span>Performance Score</h3><div class="chart-wrapper"><canvas id="overviewChart3"></canvas></div></div>
-                    <div class="chart-container"><h3><span id="chart4-sparkle-icon"></span>Defect Rate Comparison</h3><div class="chart-wrapper"><canvas id="overviewChart4"></canvas></div></div>
+                    <div class="chart-container"><h3><span id="chart3-sparkle-icon"></span><span data-translate="charts.performanceScore">Performance Score</span></h3><div class="chart-wrapper"><canvas id="overviewChart3"></canvas></div></div>
+                    <div class="chart-container"><h3><span id="chart4-sparkle-icon"></span><span data-translate="charts.defectRate">Defect Rate Comparison</span></h3><div class="chart-wrapper"><canvas id="overviewChart4"></canvas></div></div>
                 </div>
-                <div class="row mt-4">
+                <div class="row mt-4" id="overview-download-section" style="display: none;">
     <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <p class="mb-0">Market price forecasts moved to the <a href="javascript:void(0)" onclick="showSection('price')">Price Prediction</a> tab for full details.</p>
-            </div>
+        <div class="card shadow-sm" style="text-align: center; padding: 20px;">
+            <button class="details-button" onclick="showReportLanguageModal()" id="download-report-btn" style="margin: 0 auto;">
+                <span>📄</span> <span data-translate="report.downloadReport">Download Detailed Analysis Report</span>
+            </button>
         </div>
     </div>
 </div> 
             </div>
 
             <div id="production" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="production-title-icon"></span>Production Stage</h2><span id="production-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="production-title-icon"></span><span data-translate="sections.production">Production Stage</span></h2><span id="production-sparkle-icon"></span></div>
                 <div id="production-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="production-chart-sparkle-icon"></span>Average Yield by Crop</h3><div class="chart-wrapper"><canvas id="productionChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('production')"><span id="production-button-icon"></span>View Production Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="production-chart-sparkle-icon"></span><span data-translate="charts.averageYield">Average Yield by Crop</span></h3><div class="chart-wrapper"><canvas id="productionChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('production')"><span id="production-button-icon"></span><span data-translate="buttons.viewProduction">View Production Details</span></button>
             </div>
 
             <div id="storage" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="storage-title-icon"></span>Storage & Post-Harvest</h2><span id="storage-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="storage-title-icon"></span><span data-translate="sections.storage">Storage & Post-Harvest</span></h2><span id="storage-sparkle-icon"></span></div>
                 <div id="storage-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="storage-chart-sparkle-icon"></span>Storage Metrics</h3><div class="chart-wrapper"><canvas id="storageChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('storage')"><span id="storage-button-icon"></span>View Storage Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="storage-chart-sparkle-icon"></span><span data-translate="charts.storageMetrics">Storage Metrics</span></h3><div class="chart-wrapper"><canvas id="storageChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('storage')"><span id="storage-button-icon"></span><span data-translate="buttons.viewStorage">View Storage Details</span></button>
             </div>
 
             <div id="processing" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="processing-title-icon"></span>Processing & Packaging</h2><span id="processing-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="processing-title-icon"></span><span data-translate="sections.processing">Processing & Packaging</span></h2><span id="processing-sparkle-icon"></span></div>
                 <div id="processing-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="processing-chart-sparkle-icon"></span>Defect Rate by Process</h3><div class="chart-wrapper"><canvas id="processingChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('processing')"><span id="processing-button-icon"></span>View Processing Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="processing-chart-sparkle-icon"></span><span data-translate="charts.defectRateByProcess">Defect Rate by Process</span></h3><div class="chart-wrapper"><canvas id="processingChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('processing')"><span id="processing-button-icon"></span><span data-translate="buttons.viewProcessing">View Processing Details</span></button>
             </div>
 
             <div id="transportation" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="transportation-title-icon"></span>Distribution & Transportation</h2><span id="transportation-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="transportation-title-icon"></span><span data-translate="sections.transportation">Distribution & Transportation</span></h2><span id="transportation-sparkle-icon"></span></div>
                 <div id="transportation-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="transportation-chart-sparkle-icon"></span>Transportation Metrics</h3><div class="chart-wrapper"><canvas id="transChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('transportation')"><span id="transportation-button-icon"></span>View Transportation Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="transportation-chart-sparkle-icon"></span><span data-translate="charts.transportationMetrics">Transportation Metrics</span></h3><div class="chart-wrapper"><canvas id="transChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('transportation')"><span id="transportation-button-icon"></span><span data-translate="buttons.viewTransportation">View Transportation Details</span></button>
             </div>
 
             <div id="retail" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="retail-title-icon"></span>Retail Insights</h2><span id="retail-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="retail-title-icon"></span><span data-translate="sections.retail">Retail Insights</span></h2><span id="retail-sparkle-icon"></span></div>
                 <div id="retail-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="retail-chart-sparkle-icon"></span>Inventory & Sales</h3><div class="chart-wrapper"><canvas id="retailChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('retail')"><span id="retail-button-icon"></span>View Retail Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="retail-chart-sparkle-icon"></span><span data-translate="charts.inventorySales">Inventory & Sales</span></h3><div class="chart-wrapper"><canvas id="retailChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('retail')"><span id="retail-button-icon"></span><span data-translate="buttons.viewRetail">View Retail Details</span></button>
             </div>
 
             <div id="consumption" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="consumption-title-icon"></span>Consumption & Household</h2><span id="consumption-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="consumption-title-icon"></span><span data-translate="sections.consumption">Consumption & Household</span></h2><span id="consumption-sparkle-icon"></span></div>
                 <div id="consumption-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="consumption-chart-sparkle-icon"></span>Household Metrics</h3><div class="chart-wrapper"><canvas id="consumptionChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('consumption')"><span id="consumption-button-icon"></span>View Consumption Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="consumption-chart-sparkle-icon"></span><span data-translate="charts.householdMetrics">Household Metrics</span></h3><div class="chart-wrapper"><canvas id="consumptionChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('consumption')"><span id="consumption-button-icon"></span><span data-translate="buttons.viewConsumption">View Consumption Details</span></button>
             </div>
 
             <div id="price" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="price-title-icon"></span>Price Prediction</h2><span id="price-sparkle-icon"></span></div>
-                <div style="max-width: 900px; margin: 0 auto;">
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="price-title-icon"></span><span data-translate="sections.price">Price Prediction</span></h2><span id="price-sparkle-icon"></span></div>
+                <div style="max-width: 1400px; margin: 0 auto; width: 100%; padding: 0 20px;">
                     <div class="chart-container" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; padding: 40px 30px; text-align: center; color: white;">
-                        <h3 style="color: white; margin-bottom: 20px; font-size: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;"><span id="price-chart-sparkle-icon"></span>6-Month Crop Price Forecasts</h3>
-                        <p style="margin-bottom: 30px; font-size: 15px; opacity: 0.95;">View detailed price predictions with confidence intervals for all trained crops</p>
+                        <h3 style="color: white; margin-bottom: 20px; font-size: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;"><span id="price-chart-sparkle-icon"></span><span data-translate="price.forecastTitle">6-Month Crop Price Forecasts</span></h3>
+                        <p style="margin-bottom: 30px; font-size: 15px; opacity: 0.95;"><span data-translate="price.forecastDescription">View detailed price predictions with confidence intervals for all trained crops</span></p>
                         
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px;">
                             <button class="crop-forecast-btn" onclick="window.location.href='/api/prediction/price'" style="background: white; color: #667eea; border: 2px solid white; padding: 18px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
                                 <span style="font-size: 18px;">📊</span>
-                                View All Crops
+                                <span data-translate="buttons.viewAllCrops">View All Crops</span>
                             </button>
                             <button class="crop-forecast-btn" onclick="loadPricePrediction('wheat')" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid white; padding: 18px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;">
                                 <span style="font-size: 18px;">🌾</span>
@@ -871,48 +900,48 @@
                         </div>
                     </div>
                     
-                    <div class="chart-container" style="margin-top: 20px;">
-                        <div class="chart-wrapper" style="height: 380px;">
+                    <div class="chart-container" style="margin-top: 20px; width: 100%;">
+                        <div class="chart-wrapper" style="height: 380px; width: 100%;">
                             <canvas id="pricePredictionChart"></canvas>
                         </div>
                         <div class="text-center mt-3" style="padding-top: 15px; border-top: 1px solid #ecf0f1;">
                             <span class="badge bg-primary" style="background: #667eea !important; padding: 6px 12px; font-size: 12px; margin-right: 10px;">₹/quintal</span>
-                            <strong id="aiPriceInsight" style="color: #1a5f7a; font-size: 14px;">Select a crop to view the 6-month price forecast with confidence intervals.</strong>
+                            <strong id="aiPriceInsight" style="color: #1a5f7a; font-size: 14px;" data-translate="price.selectCrop">Select a crop to view the 6-month price forecast with confidence intervals.</strong>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div id="recommendation" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="recommendation-title-icon">🎯</span>Crop Recommendation</h2><span id="recommendation-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="recommendation-title-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="starGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:#FF6347;stop-opacity:1" /></linearGradient><linearGradient id="badgeGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea;stop-opacity:1" /><stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" /></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#badgeGrad2)"/><path d="M12 2L14.09 8.26L20 9.27L15 13.14L16.18 19.02L12 15.77L7.82 19.02L9 13.14L4 9.27L9.91 8.26L12 2Z" fill="url(#starGrad2)" stroke="#fff" stroke-width="0.5"/><path d="M10 12L11.5 13.5L14 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span data-translate="sections.recommendation">Crop Recommendation</span></h2><span id="recommendation-sparkle-icon"></span></div>
                 <div id="recommendation-container"></div>
             </div>
 
             <div id="waste" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="waste-title-icon"></span>Waste Management</h2><span id="waste-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="waste-title-icon"></span><span data-translate="sections.waste">Waste Management</span></h2><span id="waste-sparkle-icon"></span></div>
                 <div id="waste-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="waste-chart-sparkle-icon"></span>Waste Distribution</h3><div class="chart-wrapper"><canvas id="wasteChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('waste')"><span id="waste-button-icon"></span>View Waste Details</button>
+                <div class="chart-container farm-stage-charts"><h3><span id="waste-chart-sparkle-icon"></span><span data-translate="charts.wasteDistribution">Waste Distribution</span></h3><div class="chart-wrapper"><canvas id="wasteChart1"></canvas></div></div>
+                <button class="details-button" onclick="viewFarmDetails('waste')"><span id="waste-button-icon"></span><span data-translate="buttons.viewWaste">View Waste Details</span></button>
             </div>
 
             <div id="security" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="security-title-icon"></span>Security Camera Feed</h2><span id="security-sparkle-icon"></span></div>
+                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="security-title-icon"></span><span data-translate="sections.security">Security Camera Feed</span></h2><span id="security-sparkle-icon"></span></div>
                 <div id="security-container">
                     <div>
-                        <h3>ESPCam Configuration</h3>
+                        <h3 data-translate="security.espcamConfig">ESPCam Configuration</h3>
                         <div>
-                            <input type="text" id="espcam-ip" placeholder="ESP32 Camera IP Address" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 6px; flex: 1; min-width: 180px; font-size: 13px;">
-                            <input type="text" id="espcam-port" placeholder="Port" value="81" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 6px; width: 90px; font-size: 13px;">
-                            <button id="espcam-connect-btn" onclick="connectESPCam()" style="padding: 8px 18px; background: #1a5f7a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s;">Connect</button>
-                            <button id="espcam-disconnect-btn" onclick="disconnectESPCam()" style="padding: 8px 18px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s;">Disconnect</button>
+                            <input type="text" id="espcam-ip" data-translate="security.ipAddress" placeholder="ESP32 Camera IP Address" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 6px; flex: 1; min-width: 180px; font-size: 13px;">
+                            <input type="text" id="espcam-port" data-translate="security.port" placeholder="Port" value="81" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 6px; width: 90px; font-size: 13px;">
+                            <button id="espcam-connect-btn" onclick="connectESPCam()" data-translate="buttons.connect" style="padding: 8px 18px; background: #1a5f7a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s;">Connect</button>
+                            <button id="espcam-disconnect-btn" onclick="disconnectESPCam()" data-translate="buttons.disconnect" style="padding: 8px 18px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.3s;">Disconnect</button>
                         </div>
-                        <p>Enter your ESP32 camera IP address and port to view the live feed.</p>
+                        <p data-translate="security.enterIP">Enter your ESP32 camera IP address and port to view the live feed.</p>
                     </div>
                     <div id="security-feed-wrapper">
                         <div id="espcam-feed-container">
                             <div id="espcam-status">
-                                <p style="font-size: 24px; margin-bottom: 12px;">📹 Camera Feed</p>
-                                <p style="font-size: 16px; color: #7f8c8d;">Configure and connect to view live feed</p>
+                                <p style="font-size: 24px; margin-bottom: 12px;"><span data-translate="security.cameraFeed">📹 Camera Feed</span></p>
+                                <p style="font-size: 16px; color: #7f8c8d;"><span data-translate="security.configureConnect">Configure and connect to view live feed</span></p>
                             </div>
                             <iframe id="espcam-stream" src="" title="ESPCam Live Stream"></iframe>
                             <img id="espcam-stream-img" src="" alt="ESPCam Stream">
@@ -925,7 +954,7 @@
                                         <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="#1a5f7a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                         <circle cx="16" cy="8" r="2" fill="#e74c3c"/>
                                     </svg>
-                                    Security Alerts
+                                    <span data-translate="security.securityAlerts">Security Alerts</span>
                                 </h3>
                             </div>
                             <div id="notifications-list">
@@ -977,6 +1006,536 @@
             const sizeClass = size ? ` icon-svg-${size}` : '';
             return icons[name] ? icons[name].replace('class="icon-svg"', `class="icon-svg${sizeClass}"`) : '';
         }
+        
+        // Translation System
+        let currentLanguage = localStorage.getItem('appLanguage') || 'en';
+        
+        const translations = {
+            en: {
+                header: {
+                    subtitle: 'AI-Powered Analytics Dashboard',
+                    aiEnabled: 'AI Insights Enabled'
+                },
+                sidebar: {
+                    overview: 'Overview',
+                    production: 'Production',
+                    storage: 'Storage',
+                    processing: 'Processing',
+                    transport: 'Transport',
+                    retail: 'Retail',
+                    price: 'Price Prediction',
+                    recommendation: 'Crop Recommendation',
+                    consumption: 'Consumption',
+                    waste: 'Waste',
+                    security: 'Security'
+                },
+                farms: {
+                    all: 'All Farms',
+                    farmA: 'Farm A',
+                    farmB: 'Farm B',
+                    farmC: 'Farm C',
+                    farmD: 'Farm D'
+                },
+                sections: {
+                    overview: 'Farm Comparison Overview',
+                    production: 'Production Stage',
+                    storage: 'Storage & Post-Harvest',
+                    processing: 'Processing & Packaging',
+                    transportation: 'Distribution & Transportation',
+                    retail: 'Retail Insights',
+                    consumption: 'Consumption & Household',
+                    waste: 'Waste Management',
+                    security: 'Security Camera Feed',
+                    price: 'Price Prediction',
+                    recommendation: 'Crop Recommendation'
+                },
+                buttons: {
+                    connect: 'Connect',
+                    disconnect: 'Disconnect',
+                    viewDetails: 'View Details',
+                    viewProduction: 'View Production Details',
+                    viewStorage: 'View Storage Details',
+                    viewProcessing: 'View Processing Details',
+                    viewTransportation: 'View Transportation Details',
+                    viewRetail: 'View Retail Details',
+                    viewConsumption: 'View Consumption Details',
+                    viewWaste: 'View Waste Details',
+                    viewAllCrops: 'View All Crops'
+                },
+                security: {
+                    espcamConfig: 'ESPCam Configuration',
+                    ipAddress: 'ESP32 Camera IP Address',
+                    port: 'Port',
+                    cameraFeed: 'Camera Feed',
+                    configureConnect: 'Configure and connect to view live feed',
+                    securityAlerts: 'Security Alerts',
+                    enterIP: 'Enter your ESP32 camera IP address and port to view the live feed.'
+                },
+                price: {
+                    forecastTitle: '6-Month Crop Price Forecasts',
+                    forecastDescription: 'View detailed price predictions with confidence intervals for all trained crops',
+                    selectCrop: 'Select a crop to view the 6-month price forecast with confidence intervals.'
+                },
+                charts: {
+                    yieldComparison: 'Yield Comparison',
+                    spoilageComparison: 'Spoilage Comparison',
+                    performanceScore: 'Performance Score',
+                    defectRate: 'Defect Rate Comparison',
+                    averageYield: 'Average Yield by Crop',
+                    storageMetrics: 'Storage Metrics',
+                    defectRateByProcess: 'Defect Rate by Process',
+                    transportationMetrics: 'Transportation Metrics',
+                    inventorySales: 'Inventory & Sales',
+                    householdMetrics: 'Household Metrics',
+                    wasteDistribution: 'Waste Distribution'
+                },
+                recommendation: {
+                    optimizedAllocation: 'Optimized Crop Allocation',
+                    allocationDescription: 'Each farm is assigned a unique crop to maximize profit and prevent market saturation',
+                    you: 'You',
+                    recommendedCrop: 'RECOMMENDED CROP',
+                    profitability: 'Profitability',
+                    price: 'Price',
+                    perQuintal: '/quintal',
+                    viewDetails: 'View Details →',
+                    backToAll: '← Back to All Farms',
+                    whyThisCrop: 'Why This Crop?',
+                    cropComparison: 'Crop Comparison',
+                    best: '✓ BEST',
+                    marketStrategy: 'Cross-Farm Market Strategy',
+                    marketStrategyDesc: 'To prevent market saturation and maximize prices, farms are allocated different crops:',
+                    outOf: 'out of 100',
+                    perHectare: 'per quintal',
+                    tonnesPerHectare: 'tonnes/hectare',
+                    estProfit: 'Est. Profit/ha'
+                },
+                metrics: {
+                    yield: 'Yield',
+                    spoilage: 'Spoilage',
+                    defects: 'Defects',
+                    delays: 'Delays',
+                    waste: 'Waste',
+                    satisfaction: 'Satisfaction',
+                    pestRisk: 'Pest Risk',
+                    machineryUptime: 'Machinery Uptime',
+                    harvestUptime: 'Harvest Uptime',
+                    carbonFootprint: 'Carbon Footprint',
+                    productionCarbon: 'Production Carbon',
+                    storageCarbon: 'Storage Carbon',
+                    processingCarbon: 'Processing Carbon',
+                    transportationCarbon: 'Transportation Carbon',
+                    wasteCarbon: 'Waste Carbon',
+                    totalProduction: 'Total Production',
+                    avgDefectRate: 'Avg Defect Rate',
+                    avgSpoilage: 'Avg Spoilage',
+                    performanceScore: 'Performance Score'
+                },
+                status: {
+                    excellent: 'Excellent',
+                    good: 'Good',
+                    average: 'Average',
+                    poor: 'Poor'
+                },
+                units: {
+                    tonnesPerHa: 'tonnes/ha',
+                    percent: '%',
+                    per10: '/10',
+                    kgCO2e: 'kg CO2e'
+                },
+                ai: {
+                    insights: 'AI Insights',
+                    analysis: 'AI Analysis',
+                    comparison: 'AI Comparison',
+                    recommendations: 'Recommendations',
+                    allMetricsOptimal: 'All metrics within optimal range',
+                    allFarmsPerforming: 'All farms performing well'
+                },
+                report: {
+                    downloadReport: 'Download Detailed Analysis Report',
+                    selectLanguage: 'Select Language for Report',
+                    generating: 'Generating Report...',
+                    download: 'Download',
+                    cancel: 'Cancel'
+                }
+            },
+            hi: {
+                header: {
+                    subtitle: 'AI-संचालित एनालिटिक्स डैशबोर्ड',
+                    aiEnabled: 'AI अंतर्दृष्टि सक्षम'
+                },
+                sidebar: {
+                    overview: 'अवलोकन',
+                    production: 'उत्पादन',
+                    storage: 'भंडारण',
+                    processing: 'प्रसंस्करण',
+                    transport: 'परिवहन',
+                    retail: 'खुदरा',
+                    price: 'मूल्य भविष्यवाणी',
+                    recommendation: 'फसल सिफारिश',
+                    consumption: 'उपभोग',
+                    waste: 'अपशिष्ट',
+                    security: 'सुरक्षा'
+                },
+                farms: {
+                    all: 'सभी फार्म',
+                    farmA: 'फार्म A',
+                    farmB: 'फार्म B',
+                    farmC: 'फार्म C',
+                    farmD: 'फार्म D'
+                },
+                sections: {
+                    overview: 'फार्म तुलना अवलोकन',
+                    production: 'उत्पादन चरण',
+                    storage: 'भंडारण और कटाई के बाद',
+                    processing: 'प्रसंस्करण और पैकेजिंग',
+                    transportation: 'वितरण और परिवहन',
+                    retail: 'खुदरा अंतर्दृष्टि',
+                    consumption: 'उपभोग और घरेलू',
+                    waste: 'अपशिष्ट प्रबंधन',
+                    security: 'सुरक्षा कैमरा फीड',
+                    price: 'मूल्य भविष्यवाणी',
+                    recommendation: 'फसल सिफारिश'
+                },
+                buttons: {
+                    connect: 'कनेक्ट करें',
+                    disconnect: 'डिस्कनेक्ट करें',
+                    viewDetails: 'विवरण देखें',
+                    viewProduction: 'उत्पादन विवरण देखें',
+                    viewStorage: 'भंडारण विवरण देखें',
+                    viewProcessing: 'प्रसंस्करण विवरण देखें',
+                    viewTransportation: 'परिवहन विवरण देखें',
+                    viewRetail: 'खुदरा विवरण देखें',
+                    viewConsumption: 'उपभोग विवरण देखें',
+                    viewWaste: 'अपशिष्ट विवरण देखें',
+                    viewAllCrops: 'सभी फसलें देखें'
+                },
+                security: {
+                    espcamConfig: 'ESPCam कॉन्फ़िगरेशन',
+                    ipAddress: 'ESP32 कैमरा IP पता',
+                    port: 'पोर्ट',
+                    cameraFeed: 'कैमरा फीड',
+                    configureConnect: 'लाइव फीड देखने के लिए कॉन्फ़िगर करें और कनेक्ट करें',
+                    securityAlerts: 'सुरक्षा अलर्ट',
+                    enterIP: 'लाइव फीड देखने के लिए अपना ESP32 कैमरा IP पता और पोर्ट दर्ज करें।'
+                },
+                price: {
+                    forecastTitle: '6-महीने की फसल मूल्य पूर्वानुमान',
+                    forecastDescription: 'सभी प्रशिक्षित फसलों के लिए आत्मविश्वास अंतराल के साथ विस्तृत मूल्य पूर्वानुमान देखें',
+                    selectCrop: '6-महीने के मूल्य पूर्वानुमान को आत्मविश्वास अंतराल के साथ देखने के लिए एक फसल चुनें।'
+                },
+                charts: {
+                    yieldComparison: 'उपज तुलना',
+                    spoilageComparison: 'खराबी तुलना',
+                    performanceScore: 'प्रदर्शन स्कोर',
+                    defectRate: 'दोष दर तुलना',
+                    averageYield: 'फसल द्वारा औसत उपज',
+                    storageMetrics: 'भंडारण मेट्रिक्स',
+                    defectRateByProcess: 'प्रक्रिया द्वारा दोष दर',
+                    transportationMetrics: 'परिवहन मेट्रिक्स',
+                    inventorySales: 'इन्वेंटरी और बिक्री',
+                    householdMetrics: 'घरेलू मेट्रिक्स',
+                    wasteDistribution: 'अपशिष्ट वितरण'
+                },
+                recommendation: {
+                    optimizedAllocation: 'अनुकूलित फसल आवंटन',
+                    allocationDescription: 'लाभ को अधिकतम करने और बाजार संतृप्ति को रोकने के लिए प्रत्येक फार्म को एक अद्वितीय फसल सौंपी जाती है',
+                    you: 'आप',
+                    recommendedCrop: 'अनुशंसित फसल',
+                    profitability: 'लाभप्रदता',
+                    price: 'मूल्य',
+                    perQuintal: '/क्विंटल',
+                    viewDetails: 'विवरण देखें →',
+                    backToAll: '← सभी फार्म पर वापस',
+                    whyThisCrop: 'यह फसल क्यों?',
+                    cropComparison: 'फसल तुलना',
+                    best: '✓ सर्वश्रेष्ठ',
+                    marketStrategy: 'क्रॉस-फार्म बाजार रणनीति',
+                    marketStrategyDesc: 'बाजार संतृप्ति को रोकने और मूल्यों को अधिकतम करने के लिए, फार्मों को अलग-अलग फसलें आवंटित की जाती हैं:',
+                    outOf: '100 में से',
+                    perHectare: 'प्रति क्विंटल',
+                    tonnesPerHectare: 'टन/हेक्टेयर',
+                    estProfit: 'अनुमानित लाभ/हे'
+                },
+                metrics: {
+                    yield: 'उपज',
+                    spoilage: 'खराबी',
+                    defects: 'दोष',
+                    delays: 'देरी',
+                    waste: 'अपशिष्ट',
+                    satisfaction: 'संतुष्टि',
+                    pestRisk: 'कीट जोखिम',
+                    machineryUptime: 'मशीनरी अपटाइम',
+                    harvestUptime: 'कटाई अपटाइम',
+                    carbonFootprint: 'कार्बन फुटप्रिंट',
+                    productionCarbon: 'उत्पादन कार्बन',
+                    storageCarbon: 'भंडारण कार्बन',
+                    processingCarbon: 'प्रसंस्करण कार्बन',
+                    transportationCarbon: 'परिवहन कार्बन',
+                    wasteCarbon: 'अपशिष्ट कार्बन',
+                    totalProduction: 'कुल उत्पादन',
+                    avgDefectRate: 'औसत दोष दर',
+                    avgSpoilage: 'औसत खराबी',
+                    performanceScore: 'प्रदर्शन स्कोर'
+                },
+                status: {
+                    excellent: 'उत्कृष्ट',
+                    good: 'अच्छा',
+                    average: 'औसत',
+                    poor: 'खराब'
+                },
+                units: {
+                    tonnesPerHa: 'टन/हे',
+                    percent: '%',
+                    per10: '/10',
+                    kgCO2e: 'किग्रा CO2e'
+                },
+                ai: {
+                    insights: 'AI अंतर्दृष्टि',
+                    analysis: 'AI विश्लेषण',
+                    comparison: 'AI तुलना',
+                    recommendations: 'सिफारिशें',
+                    allMetricsOptimal: 'सभी मेट्रिक्स इष्टतम सीमा के भीतर',
+                    allFarmsPerforming: 'सभी फार्म अच्छा प्रदर्शन कर रहे हैं'
+                },
+                report: {
+                    downloadReport: 'विस्तृत विश्लेषण रिपोर्ट डाउनलोड करें',
+                    selectLanguage: 'रिपोर्ट के लिए भाषा चुनें',
+                    generating: 'रिपोर्ट तैयार की जा रही है...',
+                    download: 'डाउनलोड',
+                    cancel: 'रद्द करें'
+                }
+            },
+            kn: {
+                header: {
+                    subtitle: 'AI-ಚಾಲಿತ ವಿಶ್ಲೇಷಣಾ ಡ್ಯಾಶ್ಬೋರ್ಡ್',
+                    aiEnabled: 'AI ಒಳನೋಟಗಳು ಸಕ್ರಿಯಗೊಂಡಿವೆ'
+                },
+                sidebar: {
+                    overview: 'ಅವಲೋಕನ',
+                    production: 'ಉತ್ಪಾದನೆ',
+                    storage: 'ಸಂಗ್ರಹಣೆ',
+                    processing: 'ಸಂಸ್ಕರಣೆ',
+                    transport: 'ಸಾರಿಗೆ',
+                    retail: 'ಚಿಲ್ಲರೆ',
+                    price: 'ಬೆಲೆ ಭವಿಷ್ಯವಾಣಿ',
+                    recommendation: 'ಬೆಳೆ ಶಿಫಾರಸು',
+                    consumption: 'ಬಳಕೆ',
+                    waste: 'ಕಸ',
+                    security: 'ಭದ್ರತೆ'
+                },
+                farms: {
+                    all: 'ಎಲ್ಲಾ ಫಾರ್ಮ್ಗಳು',
+                    farmA: 'ಫಾರ್ಮ್ A',
+                    farmB: 'ಫಾರ್ಮ್ B',
+                    farmC: 'ಫಾರ್ಮ್ C',
+                    farmD: 'ಫಾರ್ಮ್ D'
+                },
+                sections: {
+                    overview: 'ಫಾರ್ಮ್ ಹೋಲಿಕೆ ಅವಲೋಕನ',
+                    production: 'ಉತ್ಪಾದನೆ ಹಂತ',
+                    storage: 'ಸಂಗ್ರಹಣೆ ಮತ್ತು ಕೊಯ್ಲು ನಂತರ',
+                    processing: 'ಸಂಸ್ಕರಣೆ ಮತ್ತು ಪ್ಯಾಕೇಜಿಂಗ್',
+                    transportation: 'ವಿತರಣೆ ಮತ್ತು ಸಾರಿಗೆ',
+                    retail: 'ಚಿಲ್ಲರೆ ಒಳನೋಟಗಳು',
+                    consumption: 'ಬಳಕೆ ಮತ್ತು ಮನೆ',
+                    waste: 'ಕಸ ನಿರ್ವಹಣೆ',
+                    security: 'ಭದ್ರತಾ ಕ್ಯಾಮೆರಾ ಫೀಡ್',
+                    price: 'ಬೆಲೆ ಭವಿಷ್ಯವಾಣಿ',
+                    recommendation: 'ಬೆಳೆ ಶಿಫಾರಸು'
+                },
+                buttons: {
+                    connect: 'ಸಂಪರ್ಕಿಸಿ',
+                    disconnect: 'ಸಂಪರ್ಕ ಕಡಿತಗೊಳಿಸಿ',
+                    viewDetails: 'ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewProduction: 'ಉತ್ಪಾದನೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewStorage: 'ಸಂಗ್ರಹಣೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewProcessing: 'ಸಂಸ್ಕರಣೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewTransportation: 'ಸಾರಿಗೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewRetail: 'ಚಿಲ್ಲರೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewConsumption: 'ಬಳಕೆ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewWaste: 'ಕಸ ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    viewAllCrops: 'ಎಲ್ಲಾ ಬೆಳೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ'
+                },
+                security: {
+                    espcamConfig: 'ESPCam ಸಂರಚನೆ',
+                    ipAddress: 'ESP32 ಕ್ಯಾಮೆರಾ IP ವಿಳಾಸ',
+                    port: 'ಪೋರ್ಟ್',
+                    cameraFeed: 'ಕ್ಯಾಮೆರಾ ಫೀಡ್',
+                    configureConnect: 'ಲೈವ್ ಫೀಡ್ ವೀಕ್ಷಿಸಲು ಸಂರಚಿಸಿ ಮತ್ತು ಸಂಪರ್ಕಿಸಿ',
+                    securityAlerts: 'ಭದ್ರತಾ ಎಚ್ಚರಿಕೆಗಳು',
+                    enterIP: 'ಲೈವ್ ಫೀಡ್ ವೀಕ್ಷಿಸಲು ನಿಮ್ಮ ESP32 ಕ್ಯಾಮೆರಾ IP ವಿಳಾಸ ಮತ್ತು ಪೋರ್ಟ್ ನಮೂದಿಸಿ.'
+                },
+                price: {
+                    forecastTitle: '6-ತಿಂಗಳ ಬೆಳೆ ಬೆಲೆ ಭವಿಷ್ಯವಾಣಿ',
+                    forecastDescription: 'ಎಲ್ಲಾ ತರಬೇತಿ ಪಡೆದ ಬೆಳೆಗಳಿಗೆ ವಿಶ್ವಾಸಾರ್ಹ ಮಧ್ಯಂತರಗಳೊಂದಿಗೆ ವಿವರವಾದ ಬೆಲೆ ಭವಿಷ್ಯವಾಣಿಗಳನ್ನು ವೀಕ್ಷಿಸಿ',
+                    selectCrop: 'ವಿಶ್ವಾಸಾರ್ಹ ಮಧ್ಯಂತರಗಳೊಂದಿಗೆ 6-ತಿಂಗಳ ಬೆಲೆ ಭವಿಷ್ಯವಾಣಿಯನ್ನು ವೀಕ್ಷಿಸಲು ಬೆಳೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ.'
+                },
+                charts: {
+                    yieldComparison: 'ಉತ್ಪಾದನೆ ಹೋಲಿಕೆ',
+                    spoilageComparison: 'ಕೆಡುವಿಕೆ ಹೋಲಿಕೆ',
+                    performanceScore: 'ಪ್ರದರ್ಶನ ಸ್ಕೋರ್',
+                    defectRate: 'ದೋಷ ದರ ಹೋಲಿಕೆ',
+                    averageYield: 'ಬೆಳೆಯಿಂದ ಸರಾಸರಿ ಉತ್ಪಾದನೆ',
+                    storageMetrics: 'ಸಂಗ್ರಹಣೆ ಮೆಟ್ರಿಕ್ಸ್',
+                    defectRateByProcess: 'ಪ್ರಕ್ರಿಯೆಯಿಂದ ದೋಷ ದರ',
+                    transportationMetrics: 'ಸಾರಿಗೆ ಮೆಟ್ರಿಕ್ಸ್',
+                    inventorySales: 'ಸ್ಟಾಕ್ ಮತ್ತು ಮಾರಾಟ',
+                    householdMetrics: 'ಮನೆ ಮೆಟ್ರಿಕ್ಸ್',
+                    wasteDistribution: 'ಕಸ ವಿತರಣೆ'
+                },
+                recommendation: {
+                    optimizedAllocation: 'ಅನುಕೂಲಕರ ಬೆಳೆ ಹಂಚಿಕೆ',
+                    allocationDescription: 'ಲಾಭವನ್ನು ಗರಿಷ್ಠಗೊಳಿಸಲು ಮತ್ತು ಮಾರುಕಟ್ಟೆ ಸಂತೃಪ್ತಿಯನ್ನು ತಡೆಯಲು ಪ್ರತಿ ಫಾರ್ಮ್ಗೆ ಒಂದು ಅನನ್ಯ ಬೆಳೆ ನಿಗದಿಪಡಿಸಲಾಗಿದೆ',
+                    you: 'ನೀವು',
+                    recommendedCrop: 'ಶಿಫಾರಸು ಮಾಡಿದ ಬೆಳೆ',
+                    profitability: 'ಲಾಭದಾಯಕತೆ',
+                    price: 'ಬೆಲೆ',
+                    perQuintal: '/ಕ್ವಿಂಟಲ್',
+                    viewDetails: 'ವಿವರಗಳನ್ನು ವೀಕ್ಷಿಸಿ →',
+                    backToAll: '← ಎಲ್ಲಾ ಫಾರ್ಮ್ಗಳಿಗೆ ಹಿಂದಿರುಗಿ',
+                    whyThisCrop: 'ಈ ಬೆಳೆ ಏಕೆ?',
+                    cropComparison: 'ಬೆಳೆ ಹೋಲಿಕೆ',
+                    best: '✓ ಅತ್ಯುತ್ತಮ',
+                    marketStrategy: 'ಕ್ರಾಸ್-ಫಾರ್ಮ್ ಮಾರುಕಟ್ಟೆ ತಂತ್ರ',
+                    marketStrategyDesc: 'ಮಾರುಕಟ್ಟೆ ಸಂತೃಪ್ತಿಯನ್ನು ತಡೆಯಲು ಮತ್ತು ಬೆಲೆಗಳನ್ನು ಗರಿಷ್ಠಗೊಳಿಸಲು, ಫಾರ್ಮ್ಗಳಿಗೆ ವಿಭಿನ್ನ ಬೆಳೆಗಳನ್ನು ನಿಗದಿಪಡಿಸಲಾಗಿದೆ:',
+                    outOf: '100 ರಲ್ಲಿ',
+                    perHectare: 'ಪ್ರತಿ ಕ್ವಿಂಟಲ್',
+                    tonnesPerHectare: 'ಟನ್/ಹೆಕ್ಟೇರ್',
+                    estProfit: 'ಅಂದಾಜು ಲಾಭ/ಹೆ'
+                },
+                metrics: {
+                    yield: 'ಉತ್ಪಾದನೆ',
+                    spoilage: 'ಕೆಡುವಿಕೆ',
+                    defects: 'ದೋಷಗಳು',
+                    delays: 'ವಿಳಂಬಗಳು',
+                    waste: 'ಕಸ',
+                    satisfaction: 'ತೃಪ್ತಿ',
+                    pestRisk: 'ಕೀಟ ಅಪಾಯ',
+                    machineryUptime: 'ಯಂತ್ರೋಪಕರಣ ಅಪ್ಟೈಮ್',
+                    harvestUptime: 'ಕೊಯ್ಲು ಅಪ್ಟೈಮ್',
+                    carbonFootprint: 'ಕಾರ್ಬನ್ ಫುಟ್ಪ್ರಿಂಟ್',
+                    productionCarbon: 'ಉತ್ಪಾದನೆ ಕಾರ್ಬನ್',
+                    storageCarbon: 'ಸಂಗ್ರಹಣೆ ಕಾರ್ಬನ್',
+                    processingCarbon: 'ಸಂಸ್ಕರಣೆ ಕಾರ್ಬನ್',
+                    transportationCarbon: 'ಸಾರಿಗೆ ಕಾರ್ಬನ್',
+                    wasteCarbon: 'ಕಸ ಕಾರ್ಬನ್',
+                    totalProduction: 'ಒಟ್ಟು ಉತ್ಪಾದನೆ',
+                    avgDefectRate: 'ಸರಾಸರಿ ದೋಷ ದರ',
+                    avgSpoilage: 'ಸರಾಸರಿ ಕೆಡುವಿಕೆ',
+                    performanceScore: 'ಪ್ರದರ್ಶನ ಸ್ಕೋರ್'
+                },
+                status: {
+                    excellent: 'ಅತ್ಯುತ್ತಮ',
+                    good: 'ಒಳ್ಳೆಯದು',
+                    average: 'ಸರಾಸರಿ',
+                    poor: 'ಕಳಪೆ'
+                },
+                units: {
+                    tonnesPerHa: 'ಟನ್/ಹೆ',
+                    percent: '%',
+                    per10: '/10',
+                    kgCO2e: 'ಕೆಜಿ CO2e'
+                },
+                ai: {
+                    insights: 'AI ಒಳನೋಟಗಳು',
+                    analysis: 'AI ವಿಶ್ಲೇಷಣೆ',
+                    comparison: 'AI ಹೋಲಿಕೆ',
+                    recommendations: 'ಶಿಫಾರಸುಗಳು',
+                    allMetricsOptimal: 'ಎಲ್ಲಾ ಮೆಟ್ರಿಕ್ಸ್ ಸೂಕ್ತ ವ್ಯಾಪ್ತಿಯಲ್ಲಿವೆ',
+                    allFarmsPerforming: 'ಎಲ್ಲಾ ಫಾರ್ಮ್ಗಳು ಚೆನ್ನಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತಿವೆ'
+                },
+                report: {
+                    downloadReport: 'ವಿವರವಾದ ವಿಶ್ಲೇಷಣೆ ವರದಿಯನ್ನು ಡೌನ್ಲೋಡ್ ಮಾಡಿ',
+                    selectLanguage: 'ವರದಿಗಾಗಿ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+                    generating: 'ವರದಿ ರಚಿಸಲಾಗುತ್ತಿದೆ...',
+                    download: 'ಡೌನ್ಲೋಡ್',
+                    cancel: 'ರದ್ದುಮಾಡಿ'
+                }
+            }
+        };
+        
+        // Helper function to get translation
+        function t(key) {
+            const keys = key.split('.');
+            let value = translations[currentLanguage];
+            for (const k of keys) {
+                value = value?.[k];
+            }
+            return value || key;
+        }
+        
+        function translatePage() {
+            const lang = translations[currentLanguage];
+            if (!lang) return;
+            
+            // Translate elements with data-translate attribute
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                const keys = key.split('.');
+                let value = lang;
+                for (const k of keys) {
+                    value = value?.[k];
+                }
+                if (value) {
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        element.placeholder = value;
+                    } else {
+                        element.innerText = value;
+                    }
+                }
+            });
+            
+            // Update language button
+            const langNames = { en: 'English', hi: 'हिंदी', kn: 'ಕನ್ನಡ' };
+            const currentLangEl = document.getElementById('current-language');
+            if (currentLangEl) {
+                currentLangEl.textContent = langNames[currentLanguage] || 'English';
+            }
+            
+            // Update language dropdown active state
+            document.querySelectorAll('.language-option').forEach(opt => {
+                opt.classList.remove('active');
+                if (opt.getAttribute('data-lang') === currentLanguage) {
+                    opt.classList.add('active');
+                }
+            });
+            
+            // Re-translate dynamically generated content if farm is selected
+            if (currentFarm && currentFarm !== 'all') {
+                loadFarmData(currentFarm);
+            } else if (currentFarm === 'all') {
+                loadOverviewData();
+            }
+        }
+        
+        function toggleLanguageDropdown() {
+            const dropdown = document.getElementById('language-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+            }
+        }
+        
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('appLanguage', lang);
+            translatePage();
+            toggleLanguageDropdown();
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function closeDropdown(e) {
+                const dropdown = document.getElementById('language-dropdown');
+                const btn = document.getElementById('language-btn');
+                if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
+        
+        // Initialize translation on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            translatePage();
+        });
         
         let currentFarm = 'all';
         const charts = {};
@@ -1265,10 +1824,25 @@
             }
             
             listContainer.innerHTML = motionNotifications.map(notif => {
+                // Determine notification type based on message
+                const isPerson = notif.message.toLowerCase().includes('person');
+                const isAnimal = !isPerson && (notif.message.toLowerCase().includes('elephant') || 
+                              notif.message.toLowerCase().includes('bear') ||
+                              notif.message.toLowerCase().includes('cow') ||
+                              notif.message.toLowerCase().includes('horse') ||
+                              notif.message.toLowerCase().includes('sheep') ||
+                              notif.message.toLowerCase().includes('dog') ||
+                              notif.message.toLowerCase().includes('cat') ||
+                              notif.message.toLowerCase().includes('bird') ||
+                              notif.message.toLowerCase().includes('zebra') ||
+                              notif.message.toLowerCase().includes('giraffe'));
+                
+                const notificationType = isPerson ? 'Person Detected' : (isAnimal ? 'Animal Detected' : 'Motion Detected');
+                
                 return `
                     <div class="notification-item motion" onclick="removeNotification(${notif.id})">
                         <div class="notification-header">
-                            <span class="notification-type">Motion Detected</span>
+                            <span class="notification-type">${notificationType}</span>
                             <span class="notification-time">${formatTimestamp(notif.timestamp)}</span>
                         </div>
                         <div class="notification-message">${notif.message}</div>
@@ -1283,64 +1857,70 @@
         }
         
         function loadDemoNotifications() {
-            // Clear existing notifications
+            // Clear existing notifications - don't load demo data
             notifications = [];
-            
-            // Generate demo notifications - only motion alerts
-            const now = new Date();
-            const demoData = [
-                {
-                    type: 'motion',
-                    message: 'Motion detected in camera view area',
-                    minutesAgo: 2
-                },
-                {
-                    type: 'motion',
-                    message: 'Movement detected near entrance',
-                    minutesAgo: 15
-                },
-                {
-                    type: 'motion',
-                    message: 'Motion detected in storage area',
-                    minutesAgo: 32
-                },
-                {
-                    type: 'motion',
-                    message: 'Activity detected in parking lot',
-                    minutesAgo: 45
-                },
-                {
-                    type: 'motion',
-                    message: 'Motion detected near warehouse',
-                    minutesAgo: 67
-                },
-                {
-                    type: 'motion',
-                    message: 'Movement detected in loading area',
-                    minutesAgo: 89
-                },
-                {
-                    type: 'motion',
-                    message: 'Motion detected at main gate',
-                    minutesAgo: 120
-                }
-            ];
-            
-            demoData.forEach(item => {
-                const timestamp = new Date(now.getTime() - item.minutesAgo * 60000);
-                const notification = {
-                    id: timestamp.getTime(),
-                    type: item.type,
-                    message: item.message,
-                    timestamp: timestamp
-                };
-                notifications.push(notification);
-            });
-            
-            // Sort by timestamp (newest first)
-            notifications.sort((a, b) => b.timestamp - a.timestamp);
-            
             renderNotifications();
+        }
+        
+        // Poll for real detections
+        let detectionPollInterval = null;
+        let lastDetectionTime = null;
+        let lastDetectedObjects = new Set();
+        
+        function startDetectionPolling() {
+            if (detectionPollInterval) {
+                clearInterval(detectionPollInterval);
+            }
+            
+            // Reset tracking when starting
+            lastDetectionTime = null;
+            lastDetectedObjects = new Set();
+            
+            detectionPollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/security/stats');
+                    if (!response.ok) return;
+                    
+                    const stats = await response.json();
+                    
+                    // Check for new detections
+                    if (stats.last_detection && stats.last_detection !== "None" && stats.last_detection_time) {
+                        const detectionTime = new Date(stats.last_detection_time);
+                        const detectedObjects = stats.detected_objects || [];
+                        const currentObjectsSet = new Set(detectedObjects);
+                        
+                        // Only add if this is a new detection (not already shown)
+                        if (!lastDetectionTime || detectionTime > lastDetectionTime) {
+                            // Check for new objects that weren't in the last detection
+                            const newObjects = detectedObjects.filter(obj => !lastDetectedObjects.has(obj));
+                            
+                            if (newObjects.length > 0) {
+                                lastDetectionTime = detectionTime;
+                                lastDetectedObjects = currentObjectsSet;
+                                
+                                // Create alert for each newly detected object
+                                newObjects.forEach(obj => {
+                                    const objName = obj.charAt(0).toUpperCase() + obj.slice(1);
+                                    const message = `${objName} detected in camera view`;
+                                    addNotification('motion', message);
+                                });
+                            } else {
+                                // Update the set even if no new objects (to track current state)
+                                lastDetectedObjects = currentObjectsSet;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling detection stats:', error);
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+        
+        function stopDetectionPolling() {
+            if (detectionPollInterval) {
+                clearInterval(detectionPollInterval);
+                detectionPollInterval = null;
+            }
         }
         
         // Function to be called by sensors in the future
@@ -1360,7 +1940,7 @@
             }
             // Update button states on initialization
             updateConnectionButtons();
-            // Load demo notifications
+            // Clear notifications (no demo data)
             loadDemoNotifications();
         }
 
@@ -1404,137 +1984,67 @@
             statusDiv.style.display = 'block';
             statusDiv.innerHTML = `
                 <p style="font-size: 18px; margin-bottom: 10px;">🔄 Connecting...</p>
-                <p style="font-size: 14px; color: #95a5a6;">Attempting to connect to ${ip}:${port}</p>
+                <p style="font-size: 14px; color: #95a5a6;">Starting detection system...</p>
             `;
             streamIframe.style.display = 'none';
             streamImg.style.display = 'none';
-
-            // Common ESP32-CAM endpoints - prioritize img endpoints for better scaling
-            const endpoints = [
-                { url: `http://${ip}:${port}/stream`, type: 'img' },  // Try as img first
-                { url: `http://${ip}:${port}/cam.mjpeg`, type: 'img' },  // Try as img first
-                { url: `http://${ip}:${port}/mjpeg/stream`, type: 'img' },  // Try as img first
-                { url: `http://${ip}:${port}/capture`, type: 'img' },
-                { url: `http://${ip}:${port}/video`, type: 'img' },
-                { url: `http://${ip}:${port}/`, type: 'iframe' },  // Fallback to iframe
-                { url: `http://${ip}:${port}/stream`, type: 'iframe' },  // Fallback to iframe
-                { url: `http://${ip}:${port}/cam.mjpeg`, type: 'iframe' }  // Fallback to iframe
-            ];
-
-            let currentEndpointIndex = 0;
-            let attemptCount = 0;
-            const maxAttempts = endpoints.length;
-
-            const tryConnect = () => {
-                if (currentEndpointIndex >= endpoints.length) {
-                    // All endpoints failed
-                    streamIframe.style.display = 'none';
-                    streamImg.style.display = 'none';
-                    statusDiv.style.display = 'block';
+            
+            // Start detection on backend
+            fetch('/api/security/start_detection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ip: ip, port: port })
+            }).then(response => response.json())
+            .then(data => {
+                if (data.error) {
                     statusDiv.innerHTML = `
-                        <p style="font-size: 18px; margin-bottom: 10px;">❌ Connection Failed</p>
-                        <p style="font-size: 14px; color: #e74c3c;">Unable to connect to ESP32 camera at ${ip}:${port}</p>
-                        <p style="font-size: 12px; color: #95a5a6; margin-top: 10px;">Please check:</p>
-                        <ul style="font-size: 12px; color: #95a5a6; text-align: left; display: inline-block; margin-top: 5px;">
-                            <li>Camera is powered on and connected to network</li>
-                            <li>IP address and port are correct</li>
-                            <li>Camera firmware supports streaming</li>
-                            <li>No firewall blocking the connection</li>
-                            <li>Try accessing the camera directly in a browser first</li>
-                        </ul>
+                        <p style="font-size: 18px; margin-bottom: 10px;">❌ Error</p>
+                        <p style="font-size: 14px; color: #e74c3c;">${data.error}</p>
                     `;
-                    isESPCamConnected = false;
                     isConnecting = false;
                     updateConnectionButtons();
                     return;
                 }
-
-                const endpoint = endpoints[currentEndpointIndex];
-                attemptCount++;
-
-                if (endpoint.type === 'iframe') {
-                    // Try iframe for MJPEG streams (fallback)
-                    streamIframe.src = endpoint.url;
-                    streamIframe.style.display = 'block';
-                    streamImg.style.display = 'none';
-                    
-                    let endpointTried = false;
-                    let timeoutId;
-                    
-                    // Set up timeout to try next endpoint if this one doesn't work after 4 seconds
-                    timeoutId = setTimeout(() => {
-                        if (!isESPCamConnected && !endpointTried && isConnecting) {
-                            endpointTried = true;
-                            streamIframe.style.display = 'none';
-                            currentEndpointIndex++;
-                            tryConnect();
-                        }
-                    }, 4000);
-                    
-                    // If iframe loads successfully, hide status and mark as connected
-                    streamIframe.onload = function() {
-                        if (!endpointTried) {
-                            clearTimeout(timeoutId);
-                            endpointTried = true;
-                            statusDiv.style.display = 'none';
-                            isESPCamConnected = true;
-                            isConnecting = false;
-                            streamIframe.style.display = 'block';
-                            updateConnectionButtons();
-                        }
-                    };
-                    
-                    // For MJPEG streams, iframe.onload may not fire reliably
-                    setTimeout(() => {
-                        if (!endpointTried && !isESPCamConnected && isConnecting) {
-                            statusDiv.style.display = 'none';
-                            isESPCamConnected = true;
-                            isConnecting = false;
-                            streamIframe.style.display = 'block';
-                            updateConnectionButtons();
-                        }
-                    }, 2500);
-                } else {
-                    // Try img tag for MJPEG/JPEG streams (preferred for better scaling)
-                    const streamUrl = endpoint.url + (endpoint.url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                    streamImg.src = streamUrl;
-                    // Let CSS handle the card styling - just set display
-                    streamImg.style.display = 'block';
-                    streamIframe.style.display = 'none';
-                    
-                    streamImg.onload = function() {
-                        statusDiv.style.display = 'none';
-                        isESPCamConnected = true;
-                        isConnecting = false;
-                        streamImg.style.display = 'block';
-                        updateConnectionButtons();
-                        
-                        // For MJPEG/JPEG streams, refresh periodically for smooth video
-                        if (espcamStreamInterval) {
-                            clearInterval(espcamStreamInterval);
-                        }
-                        // Refresh for smooth video-like experience
-                        espcamStreamInterval = setInterval(() => {
-                            if (isESPCamConnected) {
-                                streamImg.src = endpoint.url + (endpoint.url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
-                            }
-                        }, 50); // Refresh every 50ms for smoother video-like experience
-                    };
-                    
-                    streamImg.onerror = function() {
-                        currentEndpointIndex++;
-                        tryConnect();
-                    };
-                }
-            };
-
-            tryConnect();
+                
+                // Use detection video feed
+                streamImg.src = '/api/security/video_feed';
+                streamImg.style.display = 'block';
+                streamIframe.style.display = 'none';
+                statusDiv.style.display = 'none';
+                isESPCamConnected = true;
+                isConnecting = false;
+                updateConnectionButtons();
+                
+                // Start polling for detections
+                startDetectionPolling();
+            }).catch(error => {
+                console.error('Error starting detection:', error);
+                statusDiv.innerHTML = `
+                    <p style="font-size: 18px; margin-bottom: 10px;">❌ Connection Failed</p>
+                    <p style="font-size: 14px; color: #e74c3c;">Failed to start detection system</p>
+                `;
+                isConnecting = false;
+                updateConnectionButtons();
+            });
+            
         }
 
         function disconnectESPCam() {
             const statusDiv = document.getElementById('espcam-status');
             const streamIframe = document.getElementById('espcam-stream');
             const streamImg = document.getElementById('espcam-stream-img');
+            
+            // Stop detection on backend
+            fetch('/api/security/stop_detection', {
+                method: 'POST'
+            }).catch(error => {
+                console.error('Error stopping detection:', error);
+            });
+            
+            // Stop polling for detections
+            stopDetectionPolling();
             
             streamIframe.src = '';
             streamImg.src = '';
@@ -1545,7 +2055,7 @@
             statusDiv.style.display = 'block';
             statusDiv.innerHTML = `
                 <p style="font-size: 24px; margin-bottom: 12px;">📹 Camera Feed</p>
-                <p style="font-size: 16px; color: #7f8c8d;">Configure and connect to view live feed</p>
+                <p style="font-size: 16px; color: #7f8c8d;">Configure and connect to view live feed with detection</p>
             `;
             isESPCamConnected = false;
             isConnecting = false;
@@ -1554,6 +2064,10 @@
                 clearInterval(espcamStreamInterval);
                 espcamStreamInterval = null;
             }
+            
+            // Reset detection tracking
+            lastDetectionTime = null;
+            lastDetectedObjects = new Set();
             
             // Update button states after disconnecting
             updateConnectionButtons();
@@ -1629,13 +2143,19 @@
         }
 
         function getStatusText(score) {
-            if (score >= 80) return 'Excellent Performance';
-            if (score >= 65) return 'Good Performance';
-            if (score >= 50) return 'Average Performance';
-            return 'Needs Attention';
+            if (score >= 80) return t('status.excellent');
+            if (score >= 65) return t('status.good');
+            if (score >= 50) return t('status.average');
+            return t('status.poor');
         }
 
         function loadOverviewData() {
+            // Hide download button when viewing all farms
+            const downloadSection = document.getElementById('overview-download-section');
+            if (downloadSection) {
+                downloadSection.style.display = 'none';
+            }
+            
             // Only show AI Insights in Overview when viewing "All Farms"
             if (currentFarm !== 'all') {
                 const mainAIBox = document.getElementById('overviewSuggestion');
@@ -1674,28 +2194,32 @@
                             </div>
                             <div class="farm-card-body">
                                 <div class="metric-row">
-                                    <span class="metric-label">${yieldIcon} Yield</span>
-                                    <span class="metric-value">${farmData.yield.toFixed(2)} tonnes/ha</span>
+                                    <span class="metric-label">${yieldIcon} ${t('metrics.yield')}</span>
+                                    <span class="metric-value">${farmData.yield.toFixed(2)} ${t('units.tonnesPerHa')}</span>
                                 </div>
                                 <div class="metric-row">
-                                    <span class="metric-label">${spoilageIcon} Spoilage</span>
-                                    <span class="metric-value">${farmData.spoilage.toFixed(2)}%</span>
+                                    <span class="metric-label">${spoilageIcon} ${t('metrics.spoilage')}</span>
+                                    <span class="metric-value">${farmData.spoilage.toFixed(2)}${t('units.percent')}</span>
                                 </div>
                                 <div class="metric-row">
-                                    <span class="metric-label">${defectsIcon} Defects</span>
-                                    <span class="metric-value">${farmData.defects.toFixed(2)}%</span>
+                                    <span class="metric-label">${defectsIcon} ${t('metrics.defects')}</span>
+                                    <span class="metric-value">${farmData.defects.toFixed(2)}${t('units.percent')}</span>
                                 </div>
                                 <div class="metric-row">
-                                    <span class="metric-label">${transportationIcon} Delays</span>
-                                    <span class="metric-value">${farmData.delays.toFixed(1)}%</span>
+                                    <span class="metric-label">${transportationIcon} ${t('metrics.delays')}</span>
+                                    <span class="metric-value">${farmData.delays.toFixed(1)}${t('units.percent')}</span>
                                 </div>
                                 <div class="metric-row">
-                                    <span class="metric-label">${wasteIcon} Waste</span>
-                                    <span class="metric-value">${farmData.waste.toFixed(2)}%</span>
+                                    <span class="metric-label">${wasteIcon} ${t('metrics.waste')}</span>
+                                    <span class="metric-value">${farmData.waste.toFixed(2)}${t('units.percent')}</span>
                                 </div>
                                 <div class="metric-row">
-                                    <span class="metric-label">${satisfactionIcon} Satisfaction</span>
-                                    <span class="metric-value">${farmData.satisfaction.toFixed(1)}/10</span>
+                                    <span class="metric-label">${satisfactionIcon} ${t('metrics.satisfaction')}</span>
+                                    <span class="metric-value">${farmData.satisfaction.toFixed(1)}${t('units.per10')}</span>
+                                </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 ${t('metrics.carbonFootprint')}</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${farmData.carbon_footprint ? farmData.carbon_footprint.total.toFixed(2) : '0.00'} ${t('units.kgCO2e')}</span>
                                 </div>
                             </div>
                         </div>
@@ -1733,12 +2257,12 @@
                         
                         // Load smart AI insights
                         loadAIInsights('overview').then(aiData => {
-                            const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All metrics within optimal range'];
+                            const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : [t('ai.allMetricsOptimal')];
                             const recommendations = aiData.recommendations || [];
-                            mainAIBox.innerHTML = createAISuggestion('AI Insights', insights, recommendations);
+                            mainAIBox.innerHTML = createAISuggestion(t('ai.insights'), insights, recommendations);
                         }).catch(err => {
                             console.error('Error loading AI insights:', err);
-                            mainAIBox.innerHTML = createAISuggestion('AI Insights', ['All metrics within optimal range'], []);
+                            mainAIBox.innerHTML = createAISuggestion(t('ai.insights'), [t('ai.allMetricsOptimal')], []);
                         });
                     } else {
                         // Hide for individual farms
@@ -1859,9 +2383,9 @@
                 const pestIcon = getIcon('pest', 'sm');
                 const machineryIcon = getIcon('machinery', 'sm');
                 
-                const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All metrics within optimal range'];
+                const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : [t('ai.allMetricsOptimal')];
                 const recommendations = aiData.recommendations || [];
-                const aiSuggestionHTML = createAISuggestion('AI Analysis', insights, recommendations);
+                const aiSuggestionHTML = createAISuggestion(t('ai.analysis'), insights, recommendations);
                 
                 // Create side-by-side layout: Farm card and AI Analysis box
                 container.innerHTML = `
@@ -1878,36 +2402,40 @@
                                 </div>
                                 <div class="farm-card-body">
                                     <div class="metric-row">
-                                        <span class="metric-label">${yieldIcon} Yield</span>
-                                        <span class="metric-value">${data.total_production.toFixed(2)} tonnes/ha</span>
+                                        <span class="metric-label">${yieldIcon} ${t('metrics.yield')}</span>
+                                        <span class="metric-value">${data.total_production.toFixed(2)} ${t('units.tonnesPerHa')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${spoilageIcon} Spoilage</span>
-                                        <span class="metric-value">${data.storage_spoilage.toFixed(2)}%</span>
+                                        <span class="metric-label">${spoilageIcon} ${t('metrics.spoilage')}</span>
+                                        <span class="metric-value">${data.storage_spoilage.toFixed(2)}${t('units.percent')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${defectsIcon} Defects</span>
-                                        <span class="metric-value">${data.processing_defects.toFixed(2)}%</span>
+                                        <span class="metric-label">${defectsIcon} ${t('metrics.defects')}</span>
+                                        <span class="metric-value">${data.processing_defects.toFixed(2)}${t('units.percent')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${transportationIcon} Delays</span>
-                                        <span class="metric-value">${data.transport_delays.toFixed(1)}%</span>
+                                        <span class="metric-label">${transportationIcon} ${t('metrics.delays')}</span>
+                                        <span class="metric-value">${data.transport_delays.toFixed(1)}${t('units.percent')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${wasteIcon} Waste</span>
-                                        <span class="metric-value">${data.waste_percentage.toFixed(2)}%</span>
+                                        <span class="metric-label">${wasteIcon} ${t('metrics.waste')}</span>
+                                        <span class="metric-value">${data.waste_percentage.toFixed(2)}${t('units.percent')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${satisfactionIcon} Satisfaction</span>
-                                        <span class="metric-value">${data.satisfaction.toFixed(1)}/10</span>
+                                        <span class="metric-label">${satisfactionIcon} ${t('metrics.satisfaction')}</span>
+                                        <span class="metric-value">${data.satisfaction.toFixed(1)}${t('units.per10')}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${pestIcon} Pest Risk</span>
+                                        <span class="metric-label">${pestIcon} ${t('metrics.pestRisk')}</span>
                                         <span class="metric-value">${data.pest_risk.toFixed(1)}</span>
                                     </div>
                                     <div class="metric-row">
-                                        <span class="metric-label">${machineryIcon} Machinery Uptime</span>
-                                        <span class="metric-value">${data.machinery_uptime.toFixed(1)}%</span>
+                                        <span class="metric-label">${machineryIcon} ${t('metrics.machineryUptime')}</span>
+                                        <span class="metric-value">${data.machinery_uptime.toFixed(1)}${t('units.percent')}</span>
+                                    </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 ${t('metrics.carbonFootprint')}</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${data.carbon_footprint ? data.carbon_footprint.total.toFixed(2) : '0.00'} ${t('units.kgCO2e')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1915,6 +2443,12 @@
                         </div>
                     </div>
                 `;
+                
+                // Show download button for individual farms
+                const downloadSection = document.getElementById('overview-download-section');
+                if (downloadSection) {
+                    downloadSection.style.display = 'block';
+                }
                 
                 // Hide comparison charts when viewing single farm
                 document.querySelectorAll('#overviewChart1, #overviewChart2, #overviewChart3, #overviewChart4').forEach(chart => {
@@ -1924,6 +2458,67 @@
                 console.error('Error loading farm data:', err);
                 document.getElementById('farm-comparison-container').innerHTML = '<p>Error loading farm data. Please ensure the farm CSV file exists.</p>';
             });
+        }
+        
+        // Language selection modal for PDF download
+        function showReportLanguageModal() {
+            const modal = document.createElement('div');
+            modal.id = 'report-language-modal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                    <h3 style="margin: 0 0 20px 0; color: #1a5f7a; text-align: center;">${t('report.selectLanguage')}</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button onclick="downloadReport('en')" style="padding: 15px; background: #1a5f7a; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s;">
+                            🇬🇧 English
+                        </button>
+                        <button onclick="downloadReport('hi')" style="padding: 15px; background: #1a5f7a; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s;">
+                            🇮🇳 हिंदी (Hindi)
+                        </button>
+                        <button onclick="downloadReport('kn')" style="padding: 15px; background: #1a5f7a; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: all 0.3s;">
+                            🇮🇳 ಕನ್ನಡ (Kannada)
+                        </button>
+                        <button onclick="closeReportModal()" style="padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px;">
+                            ${t('report.cancel')}
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function closeReportModal() {
+            const modal = document.getElementById('report-language-modal');
+            if (modal) modal.remove();
+        }
+        
+        function downloadReport(lang) {
+            closeReportModal();
+            if (!currentFarm || currentFarm === 'all') {
+                alert('Please select a specific farm to download the report.');
+                return;
+            }
+            
+            // Show loading state
+            const btn = document.getElementById('download-report-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<span>⏳</span> ${t('report.generating')}`;
+            btn.disabled = true;
+            
+            // Download the report
+            const url = `/api/farm/${currentFarm}/report?lang=${lang}`;
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${currentFarm}_Report_${lang}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Reset button after a delay
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 2000);
         }
 
         function calculatePerformanceScore(data) {
@@ -1951,6 +2546,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0, fertilizer: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0, fertilizer: 0 };
+                    }
+                }));
+
                 let html = '';
                 const farmIcon = getIcon('farm', 'lg');
                 const yieldIcon = getIcon('yield', 'sm');
@@ -1970,6 +2576,7 @@
                     const perfScore = yield_val > 7 && pest_risk < 50 ? 80 : yield_val > 5 && pest_risk < 70 ? 65 : 50;
                     const perfClass = getPerformanceClass(perfScore);
                     const farmInsight = aiData.farm_insights && aiData.farm_insights[farm] ? aiData.farm_insights[farm] : '';
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0, fertilizer: 0 };
                     html += `
                         <div class="farm-card ${perfClass}">
                             <div class="farm-card-header">
@@ -1997,11 +2604,15 @@
                                     <span class="metric-label">${machineryIcon} Machinery Uptime</span>
                                     <span class="metric-value">${machinery_uptime.toFixed(2)}%</span>
                                 </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 Production Carbon</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.fertilizer ? carbonFootprint.fertilizer.toFixed(2) : '0.00'} kg CO2e</span>
+                                </div>
                                 ${farmInsight ? `<div class="ai-insight">💡 ${farmInsight}</div>` : ''}
                             </div>
                         </div>
                 `;
-            });
+                });
                 
                 const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All farms performing well'];
                 const recommendations = aiData.recommendations || [];
@@ -2055,6 +2666,7 @@
                     fetch(`/api/farm/${currentFarm}/production`).then(r => r.json()),
                     loadAIInsights('production')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0, fertilizer: 0 };
 
                 const score = calculatePerformanceScore(kpisData);
                 const perfClass = getPerformanceClass(score);
@@ -2097,6 +2709,14 @@
                                         <span class="metric-label">${machineryIcon} Machinery Uptime</span>
                                         <span class="metric-value">${kpisData.machinery_uptime.toFixed(2)}%</span>
                                     </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 Production Carbon</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.fertilizer ? carbonFootprint.fertilizer.toFixed(2) : '0.00'} kg CO2e</span>
+                                    </div>
+                                    <div class="metric-row">
+                                        <span class="metric-label">🌱 Total Carbon Footprint</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.total ? carbonFootprint.total.toFixed(2) : '0.00'} kg CO2e</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="ai-suggestion-box" id="productionSuggestion">${aiSuggestionHTML}</div>
@@ -2135,6 +2755,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0, storage: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0, storage: 0 };
+                    }
+                }));
+
                 let html = '';
                 
                 farms.forEach(farm => {
@@ -2154,6 +2785,7 @@
                     const spoilageIcon = getIcon('spoilage', 'sm');
                     const humidityIcon = getIcon('temperature', 'sm'); // Using temperature icon for humidity
                     const shelfLifeIcon = getIcon('processing', 'sm'); // Using processing icon for shelf life
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0, storage: 0 };
                     
                     html += `
                         <div class="farm-card ${perfClass}">
@@ -2182,10 +2814,14 @@
                                     <span class="metric-label">${shelfLifeIcon} Shelf Life</span>
                                     <span class="metric-value">${avg_shelf_life.toFixed(1)} days</span>
                                 </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 Storage Carbon</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.storage ? carbonFootprint.storage.toFixed(2) : '0.00'} kg CO2e</span>
+                                </div>
                             </div>
                         </div>
                 `;
-            });
+                });
                 
                 const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All farms performing well'];
                 const recommendations = aiData.recommendations || [];
@@ -2225,10 +2861,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/storage`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('storage')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0, storage: 0 };
                 
                 const perfScore = data.avg_spoilage < 10 ? 85 : data.avg_spoilage < 15 ? 70 : data.avg_spoilage < 20 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -2272,6 +2910,14 @@
                                         <span class="metric-label">${shelfLifeIcon} Shelf Life</span>
                                         <span class="metric-value">${data.avg_shelf_life.toFixed(1)} days</span>
                                     </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 Storage Carbon</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.storage ? carbonFootprint.storage.toFixed(2) : '0.00'} kg CO2e</span>
+                                    </div>
+                                    <div class="metric-row">
+                                        <span class="metric-label">🌱 Total Carbon Footprint</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.total ? carbonFootprint.total.toFixed(2) : '0.00'} kg CO2e</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="ai-suggestion-box" id="storageSuggestion">${aiSuggestionHTML}</div>
@@ -2310,6 +2956,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0, processing: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0, processing: 0 };
+                    }
+                }));
+
                 let html = '';
                 const farmIcon = getIcon('farm', 'lg');
                 const defectsIcon = getIcon('defects', 'sm');
@@ -2328,6 +2985,7 @@
                     const avg_packaging_speed = data.avg_packaging_speed || 0;
                     const perfScore = avg_defect_rate < 3 && avg_uptime > 90 ? 80 : avg_defect_rate < 5 && avg_uptime > 85 ? 65 : 50;
                     const perfClass = getPerformanceClass(perfScore);
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0, processing: 0 };
                     html += `
                         <div class="farm-card ${perfClass}">
                             <div class="farm-card-header">
@@ -2350,6 +3008,10 @@
                                 <div class="metric-row">
                                     <span class="metric-label">${processingIcon} Packaging Speed</span>
                                     <span class="metric-value">${avg_packaging_speed.toFixed(1)} units/min</span>
+                                </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 Processing Carbon</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.processing ? carbonFootprint.processing.toFixed(2) : '0.00'} kg CO2e</span>
                                 </div>
                             </div>
                         </div>`;
@@ -2416,10 +3078,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/processing`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('processing')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0, processing: 0 };
                 
                 const perfScore = data.avg_defect_rate < 3 && data.avg_uptime > 90 ? 85 : data.avg_defect_rate < 5 && data.avg_uptime > 85 ? 70 : data.avg_defect_rate < 7 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -2457,6 +3121,14 @@
                                     <div class="metric-row">
                                         <span class="metric-label">${processingIcon} Packaging Speed</span>
                                         <span class="metric-value">${data.avg_packaging_speed.toFixed(1)} units/min</span>
+                                    </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 Processing Carbon</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.processing ? carbonFootprint.processing.toFixed(2) : '0.00'} kg CO2e</span>
+                                    </div>
+                                    <div class="metric-row">
+                                        <span class="metric-label">🌱 Total Carbon Footprint</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.total ? carbonFootprint.total.toFixed(2) : '0.00'} kg CO2e</span>
                                     </div>
                                 </div>
                             </div>
@@ -2496,6 +3168,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0, transportation: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0, transportation: 0 };
+                    }
+                }));
+
                 let html = '';
                 
                 farms.forEach(farm => {
@@ -2516,6 +3199,7 @@
                     const delaysIcon = getIcon('delays', 'sm');
                     const fuelIcon = getIcon('fuel', 'sm');
                     const distanceIcon = getIcon('distance', 'sm');
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0, transportation: 0 };
                     
                     html += `
                         <div class="farm-card ${perfClass}">
@@ -2543,6 +3227,10 @@
                                 <div class="metric-row">
                                     <span class="metric-label">${delaysIcon} Delivery Time</span>
                                     <span class="metric-value">${avg_delivery_time.toFixed(1)} hrs</span>
+                                </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 Transportation Carbon</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.transportation ? carbonFootprint.transportation.toFixed(2) : '0.00'} kg CO2e</span>
                                 </div>
                             </div>
                         </div>`;
@@ -2586,10 +3274,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/transportation`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('transportation')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0, transportation: 0 };
                 
                 const perfScore = data.delay_percentage < 10 ? 85 : data.delay_percentage < 15 ? 70 : data.delay_percentage < 20 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -2632,6 +3322,10 @@
                                     <div class="metric-row">
                                         <span class="metric-label">${delaysIcon} Delivery Time</span>
                                         <span class="metric-value">${data.avg_delivery_time.toFixed(1)} hrs</span>
+                                    </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 Transportation Carbon</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.transportation ? carbonFootprint.transportation.toFixed(2) : '0.00'} kg CO2e</span>
                                     </div>
                                 </div>
                             </div>
@@ -2679,6 +3373,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0 };
+                    }
+                }));
+
                 let html = '';
                 
                 farms.forEach(farm => {
@@ -2698,6 +3403,7 @@
                     const wasteIcon = getIcon('waste_icon', 'sm');
                     const inventoryIcon = getIcon('inventory', 'sm');
                     const salesIcon = getIcon('sales', 'sm');
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0 };
                     
                     html += `
                         <div class="farm-card ${perfClass}">
@@ -2768,10 +3474,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/retail`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('retail')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0 };
                 
                 const perfScore = data.avg_waste < 10 ? 85 : data.avg_waste < 12 ? 70 : data.avg_waste < 15 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -2860,6 +3568,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0 };
+                    }
+                }));
+
                 let html = '';
                 
                 farms.forEach(farm => {
@@ -2878,6 +3597,7 @@
                     const satisfactionIcon = getIcon('satisfaction', 'sm');
                     const householdIcon = getIcon('household', 'sm');
                     const processingIcon = getIcon('processing', 'sm');
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0 };
                     
                     html += `
                         <div class="farm-card ${perfClass}">
@@ -2944,10 +3664,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/consumption`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('consumption')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0 };
                 
                 const perfScore = data.avg_satisfaction > 8 ? 85 : data.avg_satisfaction > 7 ? 70 : data.avg_satisfaction > 6 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -3032,6 +3754,17 @@
                 ]);
 
                 const farms = Object.keys(comparisonData);
+                // Fetch carbon footprint for all farms
+                const carbonFootprints = {};
+                await Promise.all(farms.map(async (farm) => {
+                    try {
+                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
+                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0, waste: 0 };
+                    } catch (e) {
+                        carbonFootprints[farm] = { total: 0, waste: 0 };
+                    }
+                }));
+
                 let html = '';
                 
                 farms.forEach(farm => {
@@ -3049,6 +3782,7 @@
                     const farmIcon = getIcon('farm', 'lg');
                     const wasteIcon = getIcon('waste', 'sm');
                     const processingIcon = getIcon('processing', 'sm');
+                    const carbonFootprint = carbonFootprints[farm] || { total: 0, waste: 0 };
                     
                     html += `
                         <div class="farm-card ${perfClass}">
@@ -3072,6 +3806,10 @@
                                 <div class="metric-row">
                                     <span class="metric-label">${processingIcon} Biogas Output</span>
                                     <span class="metric-value">${avg_biogas.toFixed(1)} m³</span>
+                                </div>
+                                <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                    <span class="metric-label">🌱 Waste Carbon</span>
+                                    <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.waste ? carbonFootprint.waste.toFixed(2) : '0.00'} kg CO2e</span>
                                 </div>
                             </div>
                         </div>`;
@@ -3115,10 +3853,12 @@
             }
             
             try {
-                const [data, aiData] = await Promise.all([
+                const [data, kpisData, aiData] = await Promise.all([
                     fetch(`/api/farm/${currentFarm}/waste`).then(r => r.json()),
+                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
                     loadAIInsights('waste')
                 ]);
+                const carbonFootprint = kpisData.carbon_footprint || { total: 0, waste: 0 };
                 
                 const perfScore = data.avg_segregation > 85 && data.avg_upcycling > 60 ? 85 : data.avg_segregation > 75 && data.avg_upcycling > 50 ? 70 : data.avg_segregation > 65 ? 55 : 40;
                 const perfClass = getPerformanceClass(perfScore);
@@ -3155,6 +3895,10 @@
                                     <div class="metric-row">
                                         <span class="metric-label">${processingIcon} Biogas Output</span>
                                         <span class="metric-value">${data.avg_biogas.toFixed(1)} m³</span>
+                                    </div>
+                                    <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
+                                        <span class="metric-label">🌱 Waste Carbon</span>
+                                        <span class="metric-value" style="color: #27ae60; font-weight: bold;">${carbonFootprint.waste ? carbonFootprint.waste.toFixed(2) : '0.00'} kg CO2e</span>
                                     </div>
                                 </div>
                             </div>
@@ -4031,7 +4775,7 @@
         let html = `
             <div style="max-width: 1200px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #1a5f7a 0%, #0f3a4f 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px;">
-                    <h3 style="margin: 0 0 10px 0; font-size: 20px;">🎯 Optimized Crop Allocation</h3>
+                    <h3 style="margin: 0 0 10px 0; font-size: 20px; display: flex; align-items: center; gap: 8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="starGrad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:#FF6347;stop-opacity:1" /></linearGradient><linearGradient id="badgeGrad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.8" /><stop offset="100%" style="stop-color:#FF6347;stop-opacity:0.8" /></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#badgeGrad3)" stroke="#fff" stroke-width="1"/><path d="M12 2L14.09 8.26L20 9.27L15 13.14L16.18 19.02L12 15.77L7.82 19.02L9 13.14L4 9.27L9.91 8.26L12 2Z" fill="url(#starGrad3)" stroke="#fff" stroke-width="0.5"/><path d="M10 12L11.5 13.5L14 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg> Optimized Crop Allocation</h3>
                     <p style="margin: 0; opacity: 0.9;">Each farm is assigned a unique crop to maximize profit and prevent market saturation</p>
                 </div>
                 

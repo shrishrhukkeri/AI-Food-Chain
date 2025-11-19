@@ -11,3 +11,4 @@ accelerate
 pydub
 gtts
 pmdarima
+reportlab

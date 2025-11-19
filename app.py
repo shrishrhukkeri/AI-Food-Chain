@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import pandas as pd
 import json
 import os
@@ -19,10 +19,223 @@ import soundfile as sf
 import numpy as np
 import joblib
 from scipy.special import inv_boxcox
+import cv2
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+
+# ==================== SECURITY CAMERA DETECTION ====================
+# YOLO model for object detection
+detection_model = None
+detection_thread = None
+detection_running = False
+frame_lock = threading.Lock()
+current_detection_frame = None
+detection_stats = {
+    "frames_processed": 0,
+    "detections": 0,
+    "fps": 0,
+    "last_detection": "None",
+    "last_detection_time": None,
+    "detected_objects": []
+}
+
+# Allowed objects to detect
+ALLOWED_OBJECTS = ["person", "bird", "dog", "horse", "sheep", "cow",
+                   "elephant", "bear", "zebra", "giraffe"]
+
+def init_detection_model():
+    """Initialize YOLO model for detection"""
+    global detection_model
+    try:
+        from ultralytics import YOLO
+        detection_model = YOLO("yolov8x.pt")
+        print("YOLO model loaded successfully")
+        return True
+    except ImportError:
+        print("Warning: ultralytics not installed. Detection will be disabled.")
+        return False
+    except Exception as e:
+        print(f"Warning: Could not load YOLO model: {e}")
+        return False
+
+def fetch_frame_from_camera(ip, port):
+    """Fetch frame from ESP32 camera"""
+    try:
+        stream_url = f"http://{ip}:{port}/stream"
+        capture_url = f"http://{ip}:{port}/capture"
+        
+        # Try stream first
+        cap = cv2.VideoCapture(stream_url)
+        ret, frame = cap.read()
+        cap.release()
+        
+        if ret and frame is not None:
+            return frame
+        
+        # Fallback to capture
+        resp = requests.get(capture_url, timeout=3)
+        if resp.status_code == 200:
+            arr = np.frombuffer(resp.content, np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            return img
+    except Exception as e:
+        print(f"Error fetching frame: {e}")
+    return None
+
+def detect_objects_thread(ip, port):
+    """Detection thread that processes frames"""
+    global current_detection_frame, detection_stats, detection_running, detection_model
+    
+    if detection_model is None:
+        return
+    
+    frame_times = []
+    last_alert_time = {}
+    
+    while detection_running:
+        start = time.time()
+        
+        # Fetch frame from camera
+        frame = fetch_frame_from_camera(ip, port)
+        
+        if frame is None:
+            time.sleep(0.1)
+            continue
+        
+        # YOLO inference
+        try:
+            results = detection_model(frame)[0]
+            
+            keep = []
+            detected_now = []
+            
+            for box in results.boxes:
+                cls = detection_model.names[int(box.cls)]
+                if cls in ALLOWED_OBJECTS:
+                    keep.append(box)
+                    detected_now.append(cls)
+            
+            results.boxes = keep
+            annotated = results.plot()
+            
+            # Update stats
+            detection_stats["frames_processed"] += 1
+            if detected_now:
+                unique_detections = list(set(detected_now))
+                detection_stats["detections"] += len(unique_detections)
+                detection_stats["last_detection"] = ", ".join(unique_detections)
+                detection_stats["last_detection_time"] = datetime.now().isoformat()
+                detection_stats["detected_objects"] = unique_detections
+                
+                # Trigger alerts for new detections (avoid spam - alert once per minute per object type)
+                current_time = time.time()
+                for obj in unique_detections:
+                    if obj not in last_alert_time or (current_time - last_alert_time[obj]) > 60:
+                        last_alert_time[obj] = current_time
+                        # Alert will be picked up by frontend polling
+            
+            # FPS calculation
+            frame_times.append(time.time() - start)
+            if len(frame_times) > 30:
+                frame_times.pop(0)
+            if len(frame_times) > 0:
+                detection_stats["fps"] = 1 / (sum(frame_times) / len(frame_times))
+            
+            # Overlay stats on frame
+            #cv2.putText(annotated, f"FPS: {detection_stats['fps']:.1f}",
+            #          (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            if detected_now:
+                cv2.putText(annotated, f"Detected: {detection_stats['last_detection']}",
+                           (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Save frame
+            with frame_lock:
+                current_detection_frame = annotated.copy()
+                
+        except Exception as e:
+            print(f"Detection error: {e}")
+        
+        time.sleep(0.02)
+
+def generate_detection_frames():
+    """Generate frames for video feed"""
+    global current_detection_frame
+    while True:
+        with frame_lock:
+            if current_detection_frame is None:
+                time.sleep(0.01)
+                continue
+            
+            ret, buf = cv2.imencode('.jpg', current_detection_frame)
+            if not ret:
+                continue
+            frame = buf.tobytes()
+        
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+
+@app.route('/api/security/video_feed')
+def security_video_feed():
+    """Video feed with detection"""
+    return Response(generate_detection_frames(),
+                    mimetype="multipart/x-mixed-replace; boundary=frame")
+
+@app.route('/api/security/stats')
+def security_stats():
+    """Get detection statistics"""
+    return jsonify(detection_stats)
+
+@app.route('/api/security/start_detection', methods=['POST'])
+def start_detection():
+    """Start detection with camera IP and port"""
+    global detection_thread, detection_running
+    
+    data = request.json
+    ip = data.get('ip', '')
+    port = data.get('port', '81')
+    
+    if not ip:
+        return jsonify({"error": "IP address required"}), 400
+    
+    # Stop existing detection if running
+    if detection_running:
+        detection_running = False
+        if detection_thread:
+            detection_thread.join(timeout=2)
+    
+    # Initialize model if needed
+    if detection_model is None:
+        if not init_detection_model():
+            return jsonify({"error": "YOLO model not available"}), 500
+    
+    # Start detection thread
+    detection_running = True
+    detection_thread = threading.Thread(target=detect_objects_thread, args=(ip, port), daemon=True)
+    detection_thread.start()
+    
+    return jsonify({"status": "started", "ip": ip, "port": port})
+
+@app.route('/api/security/stop_detection', methods=['POST'])
+def stop_detection():
+    """Stop detection"""
+    global detection_running, current_detection_frame
+    
+    detection_running = False
+    with frame_lock:
+        current_detection_frame = None
+    
+    return jsonify({"status": "stopped"})
+# ==================== END SECURITY CAMERA DETECTION ====================
 
 FARM_FILES = {
     'FarmA': 'farm_a_data.csv',
@@ -144,12 +357,91 @@ def clear_farm_data_cache():
 def index():
     return render_template('index.html')
 
+def calculate_carbon_footprint(data):
+    """
+    Calculate carbon footprint in kg CO2e based on farm operations
+    Returns total carbon footprint and breakdown by category
+    """
+    if data.empty:
+        return {'total': 0, 'fertilizer': 0, 'transportation': 0, 'storage': 0, 'processing': 0, 'waste': 0}
+    
+    # 1. Fertilizer emissions (N2O from nitrogen fertilizers)
+    # Average: 1.5 kg CO2e per kg of fertilizer (assuming mixed fertilizer)
+    avg_fertilizer = float(data['Fertilizer_kg_per_ha'].mean())
+    avg_yield = float(data['Yield_tonnes_per_ha'].mean())
+    # Calculate per tonne of yield
+    fertilizer_emissions = (avg_fertilizer * 1.5) if avg_yield > 0 else 0
+    
+    # 2. Transportation emissions (CO2 from fuel consumption)
+    # Diesel: 2.31 kg CO2 per liter, Petrol: 2.31 kg CO2 per liter
+    avg_distance = float(data['TransportDistance_km'].mean())
+    avg_fuel_usage = float(data['FuelUsage_L_per_100km'].mean())
+    # Calculate total fuel used per batch
+    total_fuel = (avg_distance / 100) * avg_fuel_usage
+    transportation_emissions = total_fuel * 2.31
+    
+    # Transport mode multipliers (Air > Truck > Train > Ship)
+    transport_modes = data['TransportMode'].value_counts(normalize=True)
+    mode_multiplier = 1.0
+    if 'Air' in transport_modes:
+        mode_multiplier += transport_modes['Air'] * 0.5  # Air transport is more carbon intensive
+    if 'Truck' in transport_modes:
+        mode_multiplier += transport_modes['Truck'] * 0.2
+    transportation_emissions *= mode_multiplier
+    
+    # 3. Storage emissions (energy for refrigeration and climate control)
+    # Based on storage days and temperature control
+    avg_storage_days = float(data['StorageDays'].mean())
+    avg_storage_temp = float(data['StorageTemperature_C'].mean())
+    # Lower temperatures require more energy
+    temp_factor = max(0, (20 - avg_storage_temp) / 20) if avg_storage_temp < 20 else 0.1
+    # Energy consumption: approximately 0.5 kWh per day per tonne (rough estimate)
+    storage_energy_kwh = avg_storage_days * temp_factor * 0.5 * (avg_yield if avg_yield > 0 else 1)
+    # Grid electricity: approximately 0.5 kg CO2e per kWh (varies by region)
+    storage_emissions = storage_energy_kwh * 0.5
+    
+    # 4. Processing emissions (energy for processing and packaging)
+    # Based on processing type and machinery uptime
+    avg_machinery_uptime = float(data['MachineryUptime_%'].mean())
+    avg_packaging_speed = float(data['PackagingSpeed_units_per_min'].mean())
+    # Energy consumption based on processing intensity
+    processing_energy_kwh = (avg_machinery_uptime / 100) * 2.0 * (avg_yield if avg_yield > 0 else 1)
+    # Processing type multipliers
+    process_types = data['ProcessType'].value_counts(normalize=True)
+    process_multiplier = 1.0
+    if 'Freezing' in process_types:
+        process_multiplier += process_types['Freezing'] * 0.8  # Freezing is energy intensive
+    if 'Canning' in process_types:
+        process_multiplier += process_types['Canning'] * 0.5
+    processing_emissions = processing_energy_kwh * 0.5 * process_multiplier
+    
+    # 5. Waste emissions (methane from organic waste decomposition)
+    avg_waste_percentage = float(data['WastePercentage_%'].mean())
+    avg_household_waste = float(data['HouseholdWaste_kg'].mean())
+    # Methane has 25x GWP of CO2, but only a portion of waste decomposes anaerobically
+    # Approximately 0.5 kg CO2e per kg of organic waste
+    waste_emissions = (avg_waste_percentage / 100 * avg_yield * 1000 * 0.5) if avg_yield > 0 else 0
+    waste_emissions += avg_household_waste * 0.5
+    
+    # Total carbon footprint (per batch/record, averaged)
+    total = fertilizer_emissions + transportation_emissions + storage_emissions + processing_emissions + waste_emissions
+    
+    return {
+        'total': round(total, 2),
+        'fertilizer': round(fertilizer_emissions, 2),
+        'transportation': round(transportation_emissions, 2),
+        'storage': round(storage_emissions, 2),
+        'processing': round(processing_emissions, 2),
+        'waste': round(waste_emissions, 2)
+    }
+
 @app.route('/api/farm/<farm_name>/kpis')
 def get_farm_kpis(farm_name):
     data = load_farm_data(farm_name)
     if data.empty:
         return jsonify({'error': 'Farm not found'}), 404
     
+    carbon_footprint = calculate_carbon_footprint(data)
     kpis = {
         'total_production': float(data['Yield_tonnes_per_ha'].mean()),
         'storage_spoilage': float(data['SpoilageRate_%'].mean()),
@@ -162,7 +454,8 @@ def get_farm_kpis(farm_name):
         'total_records': len(data),
         'pest_risk': float(data['PestRiskScore'].mean()),
         'machinery_uptime': float(data['MachineryUptime_%'].mean()),
-        'harvest_uptime': float(data['HarvestRobotUptime_%'].mean())
+        'harvest_uptime': float(data['HarvestRobotUptime_%'].mean()),
+        'carbon_footprint': carbon_footprint
     }
     return jsonify(kpis)
 
@@ -323,6 +616,7 @@ def get_overview():
     overview = {}
     
     for farm_name, data in all_farms.items():
+        carbon_footprint = calculate_carbon_footprint(data)
         overview[farm_name] = {
             'yield': float(data['Yield_tonnes_per_ha'].mean()),
             'spoilage': float(data['SpoilageRate_%'].mean()),
@@ -333,7 +627,8 @@ def get_overview():
             'pest_risk': float(data['PestRiskScore'].mean()),
             'machinery_uptime': float(data['MachineryUptime_%'].mean()),
             'total_records': len(data),
-            'performance_score': 0  # Will calculate below
+            'performance_score': 0,  # Will calculate below
+            'carbon_footprint': carbon_footprint
         }
     
     # Calculate performance scores (0-100)
@@ -372,7 +667,7 @@ def get_ai_insights(farm_name, section):
     else:
         data = load_farm_data(farm_name)
         if data.empty:
-            return jsonify({'error': 'Farm not found'}), 404
+            return {'insights': [], 'recommendations': []}
         return generate_farm_insights(farm_name, data, section)
 
 def generate_comparison_insights(all_farms, section):
@@ -1426,7 +1721,16 @@ def create_farmer_prompt(context, question, language='en'):
     
     lang_instruction = language_instructions.get(language, language_instructions['en'])
     
-    prompt = f"""You are a friendly, experienced, and knowledgeable farmer with decades of hands-on experience in agriculture. You speak in a warm, conversational, and down-to-earth manner - like a neighbor who's always happy to share farming wisdom. You use casual language, occasional farming expressions, and you're genuinely passionate about agriculture.
+    prompt = f"""You are a professional, experienced, and knowledgeable agricultural expert with decades of hands-on experience in farming and food supply chain management. You communicate in a polite, professional, and courteous manner while remaining approachable and helpful. You maintain a respectful tone throughout all interactions.
+
+TONE AND STYLE REQUIREMENTS:
+- Use professional and polite language at all times
+- Be courteous, respectful, and well-mannered
+- Avoid casual expressions, slang, contractions like "keepin'", or overly informal phrases like "Just holler!"
+- Use proper grammar and complete sentences
+- Be warm and helpful, but maintain professionalism
+- Use phrases like "I'd be happy to help", "Please let me know", "I can provide", "Would you like to know more about"
+- End responses politely with offers to help further, but avoid overly casual closings
 
 LANGUAGE INSTRUCTION - CRITICAL:
 {lang_instruction}
@@ -1449,18 +1753,18 @@ CRITICAL RESTRICTIONS - YOU MUST FOLLOW THESE STRICTLY:
    - Medical, legal, or financial advice
    - Any topic unrelated to agriculture or this food supply chain project
 
-3. When refusing off-topic questions, be friendly and redirect: "Well, I appreciate your question, but I'm a farmer through and through - I only talk about farming, crops, livestock, and the data from our farms here. I'd be happy to help you with anything related to our food supply chain, yields, spoilage, waste management, or farm performance though!"
+3. When refusing off-topic questions, respond professionally: "I appreciate your question, but I specialize exclusively in farming, agriculture, and the data from our farms. I'd be happy to assist you with any questions related to our food supply chain, yields, spoilage, waste management, or farm performance."
 
-4. When answering farming questions point-wise, use the data provided below. Be accurate with numbers and specific with your answers.
+4. When answering farming questions, use the data provided below. Be accurate with numbers and specific with your answers. Present information clearly and professionally.
 
-5. Keep your responses conversational and friendly, like you're chatting over a fence with a neighbor. But be professional and concise.
+5. Keep your responses clear, professional, and concise while remaining helpful and approachable.
 
 FARM DATA FROM THIS PROJECT:
 {context}
 
 USER'S QUESTION: {question}
 
-Remember: You are a farmer. You only talk about farming and this project's farm data. Be friendly, conversational, and helpful - but stay strictly within your farming expertise!"""
+Remember: You are a professional agricultural expert. You only discuss farming and this project's farm data. Maintain a polite, professional, and respectful tone in all responses. Be helpful and informative while staying strictly within your agricultural expertise."""
     
     return prompt
 
@@ -1505,54 +1809,190 @@ def chatbot():
         # Prepare context with farm data
         context = prepare_farm_context(all_farms)
         
-        # Initialize Gemini API
-        api_key = os.environ.get('GEMINI_API_KEY')
-        if not api_key:
-            error_messages = {
-                'en': 'I\'m sorry, but the Gemini API key isn\'t configured. Please set the GEMINI_API_KEY environment variable.',
-                'hi': 'मुझे खेद है, लेकिन Gemini API कुंजी कॉन्फ़िगर नहीं की गई है। कृपया GEMINI_API_KEY environment variable सेट करें।',
-                'kn': 'ಕ್ಷಮಿಸಿ, ಆದರೆ Gemini API ಕೀ ಕಾನ್ಫಿಗರ್ ಮಾಡಲಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು GEMINI_API_KEY environment variable ಅನ್ನು ಹೊಂದಿಸಿ.'
-            }
-            return jsonify({
-                'response': error_messages.get(language, error_messages['en'])
-            })
+        # Create system prompt with farmer persona and language
+        system_prompt = create_farmer_prompt(context, question, language)
         
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            
-            # Create system prompt with farmer persona and language
-            system_prompt = create_farmer_prompt(context, question, language)
-            
-            # Generate response
-            response = model.generate_content(
-                system_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=1000,  # Increased for more detailed responses
-                )
-            )
-            
-            response_text = response.text.strip() if response.text else ''
-            
-            if response_text:
-                # Convert markdown formatting to HTML
-                response_text = convert_markdown_to_html(response_text)
-                return jsonify({'response': response_text})
-            else:
-                return jsonify({
-                    'response': 'Hmm, I didn\'t get a proper response. Could you try rephrasing your question about the farms?'
-                })
+        # Language-based AI selection:
+        # - Hindi/Kannada: Gemini first (better multilingual support)
+        # - English: Ollama first (local, faster)
+        use_gemini_first = language in ['hi', 'kn']
+        
+        response_text = None
+        
+        # Helper function to try Ollama
+        def try_ollama():
+            try:
+                ollama_model = os.environ.get('OLLAMA_MODEL', 'llama3.2')
+                ollama_url = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
                 
-        except Exception as e:
-            error_msg = str(e)
-            if 'API_KEY' in error_msg or 'api key' in error_msg.lower():
-                return jsonify({
-                    'response': 'There\'s an issue with the API key. Please check your GEMINI_API_KEY environment variable.'
-                })
-            return jsonify({
-                'response': f'Sorry, I ran into a technical issue: {error_msg}. Could you try asking again?'
-            })
+                ollama_payload = {
+                    'model': ollama_model,
+                    'prompt': system_prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.7,
+                        'num_predict': 1000
+                    }
+                }
+                
+                response = requests.post(
+                    f'{ollama_url}/api/generate',
+                    json=ollama_payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    response_text = result.get('response', '').strip()
+                    if response_text:
+                        app.logger.info(f"Successfully used Ollama ({ollama_model}) for chatbot response")
+                        return convert_markdown_to_html(response_text)
+                return None
+            except Exception as e:
+                app.logger.warning(f"Ollama error: {e}")
+                return None
+        
+        # Helper function to try Gemini
+        def try_gemini():
+            api_key = os.environ.get('GEMINI_API_KEY')
+            if not api_key or api_key.strip() == 'your_api_key_here' or api_key.strip() == '':
+                return None
+            
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                
+                response = model.generate_content(
+                    system_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=1000,
+                    )
+                )
+                
+                response_text = response.text.strip() if response.text else ''
+                if response_text:
+                    app.logger.info("Successfully used Gemini API for chatbot response")
+                    return convert_markdown_to_html(response_text)
+                return None
+            except Exception as e:
+                app.logger.warning(f"Gemini error: {e}")
+                return None
+        
+        # Try AI based on language preference
+        if use_gemini_first:
+            # Hindi/Kannada: Try Gemini first, then Ollama
+            app.logger.info(f"Language {language} detected - trying Gemini first")
+            response_text = try_gemini()
+            if not response_text:
+                app.logger.info("Gemini failed, trying Ollama as fallback...")
+                response_text = try_ollama()
+        else:
+            # English: Try Ollama first, then Gemini
+            app.logger.info("English detected - trying Ollama first")
+            response_text = try_ollama()
+            if not response_text:
+                app.logger.info("Ollama failed, trying Gemini as fallback...")
+                response_text = try_gemini()
+        
+        # If we got a response, return it
+        if response_text:
+            return jsonify({'response': response_text})
+        
+        # Both AI services failed, use rule-based fallback
+        api_key = os.environ.get('GEMINI_API_KEY')
+        if not api_key or api_key.strip() == 'your_api_key_here' or api_key.strip() == '':
+            # Smart fallback: Try to answer basic questions using available data
+            question_lower = question.lower()
+            
+            # Check for farm-specific queries
+            farm_mentioned = None
+            for farm in ['farma', 'farm a', 'farmb', 'farm b', 'farmc', 'farm c', 'farmd', 'farm d']:
+                if farm in question_lower:
+                    farm_mentioned = farm.replace(' ', '').upper()
+                    break
+            
+            # Check for comparison queries
+            if any(word in question_lower for word in ['compare', 'comparison', 'which farm', 'best farm', 'worst farm']):
+                if 'yield' in question_lower or 'production' in question_lower:
+                    response_text = get_yield_comparison(all_farms)
+                elif 'spoilage' in question_lower or 'spoil' in question_lower:
+                    response_text = get_spoilage_comparison(all_farms)
+                elif 'satisfaction' in question_lower or 'customer' in question_lower:
+                    response_text = get_satisfaction_comparison(all_farms)
+                else:
+                    # General comparison
+                    response_text = "Here's a quick comparison:\n\n"
+                    response_text += get_yield_comparison(all_farms) + "\n\n"
+                    response_text += get_spoilage_comparison(all_farms)
+            # Check for specific farm summary
+            elif farm_mentioned and farm_mentioned in all_farms:
+                response_text = get_farm_summary(farm_mentioned, all_farms[farm_mentioned])
+            # Check for summary requests
+            elif any(word in question_lower for word in ['summary', 'overview', 'tell me about']):
+                if farm_mentioned and farm_mentioned in all_farms:
+                    response_text = get_farm_summary(farm_mentioned, all_farms[farm_mentioned])
+                else:
+                    response_text = "Here's an overview of all farms:\n\n"
+                    for farm_name, farm_data in all_farms.items():
+                        response_text += get_farm_summary(farm_name, farm_data) + "\n\n"
+            # Check for yield queries
+            elif 'yield' in question_lower:
+                response_text = get_yield_comparison(all_farms)
+            # Check for spoilage queries
+            elif 'spoilage' in question_lower or 'spoil' in question_lower:
+                response_text = get_spoilage_comparison(all_farms)
+            # Check for satisfaction queries
+            elif 'satisfaction' in question_lower or 'customer' in question_lower:
+                response_text = get_satisfaction_comparison(all_farms)
+            # Default helpful response
+            else:
+                fallback_responses = {
+                    'en': 'I can help you with basic farm data queries! Try asking:\n\n' +
+                          '• "Compare farms" or "Which farm has the best yield?"\n' +
+                          '• "Tell me about Farm A" or "Summary of Farm B"\n' +
+                          '• "Show me yield comparison" or "Compare spoilage rates"\n' +
+                          '• "Which farm has highest satisfaction?"\n\n' +
+                          'You can also view detailed data in the dashboard sections.\n\n' +
+                          'To enable full AI chat, please:\n' +
+                          '1. Install and run Ollama locally (preferred), or\n' +
+                          '2. Set the GEMINI_API_KEY environment variable',
+                    'hi': 'मैं आपकी बुनियादी फार्म डेटा प्रश्नों में मदद कर सकता हूं! पूछने का प्रयास करें:\n\n' +
+                          '• "फार्मों की तुलना करें" या "किस फार्म की उपज सबसे अच्छी है?"\n' +
+                          '• "फार्म A के बारे में बताएं" या "फार्म B का सारांश"\n' +
+                          '• "उपज तुलना दिखाएं" या "खराबी दरों की तुलना करें"\n\n' +
+                          'पूर्ण AI चैट सक्षम करने के लिए, कृपया:\n' +
+                          '1. Ollama स्थानीय रूप से इंस्टॉल और चलाएं (पसंदीदा), या\n' +
+                          '2. GEMINI_API_KEY environment variable सेट करें',
+                    'kn': 'ನಾನು ನಿಮಗೆ ಮೂಲಭೂತ ಫಾರ್ಮ್ ಡೇಟಾ ಪ್ರಶ್ನೆಗಳಿಗೆ ಸಹಾಯ ಮಾಡಬಹುದು! ಕೇಳಲು ಪ್ರಯತ್ನಿಸಿ:\n\n' +
+                          '• "ಫಾರ್ಮ್ಗಳನ್ನು ಹೋಲಿಸಿ" ಅಥವಾ "ಯಾವ ಫಾರ್ಮ್ಗೆ ಅತ್ಯುತ್ತಮ ಇಳುವರಿ ಇದೆ?"\n' +
+                          '• "ಫಾರ್ಮ್ A ಬಗ್ಗೆ ಹೇಳಿ" ಅಥವಾ "ಫಾರ್ಮ್ B ಸಾರಾಂಶ"\n' +
+                          '• "ಇಳುವರಿ ಹೋಲಿಕೆ ತೋರಿಸಿ" ಅಥವಾ "ಕೆಡುವಿಕೆ ದರಗಳನ್ನು ಹೋಲಿಸಿ"\n\n' +
+                          'ಪೂರ್ಣ AI ಚಾಟ್ ಸಕ್ರಿಯಗೊಳಿಸಲು, ದಯವಿಟ್ಟು:\n' +
+                          '1. Ollama ಅನ್ನು ಸ್ಥಳೀಯವಾಗಿ ಸ್ಥಾಪಿಸಿ ಮತ್ತು ಚಲಾಯಿಸಿ (ಆದ್ಯತೆ), ಅಥವಾ\n' +
+                          '2. GEMINI_API_KEY environment variable ಅನ್ನು ಹೊಂದಿಸಿ'
+                }
+                response_text = fallback_responses.get(language, fallback_responses['en'])
+            
+            return jsonify({'response': response_text})
+        
+        # Both AI services failed - return helpful error message
+        error_responses = {
+            'en': 'I apologize, but both AI services (Ollama and Gemini) are currently unavailable. However, I can help you with basic farm data queries! Try asking:\n\n' +
+                  '• "Compare farms" or "Which farm has the best yield?"\n' +
+                  '• "Tell me about Farm A" or "Summary of Farm B"\n' +
+                  '• "Show me yield comparison" or "Compare spoilage rates"\n\n' +
+                  'To enable AI chat:\n' +
+                  '• For English: Install and run Ollama locally (preferred)\n' +
+                  '• For Hindi/Kannada: Set the GEMINI_API_KEY environment variable',
+            'hi': 'मैं क्षमा चाहता हूं, लेकिन दोनों AI सेवाएं (Ollama और Gemini) वर्तमान में उपलब्ध नहीं हैं। हालाँकि, मैं आपकी बुनियादी फार्म डेटा प्रश्नों में मदद कर सकता हूं!\n\n' +
+                  'AI चैट सक्षम करने के लिए, कृपया GEMINI_API_KEY environment variable सेट करें।',
+            'kn': 'ನಾನು ಕ್ಷಮೆ ಕೋರುತ್ತೇನೆ, ಆದರೆ ಎರಡೂ AI ಸೇವೆಗಳು (Ollama ಮತ್ತು Gemini) ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ. ಆದಾಗ್ಯೂ, ನಾನು ನಿಮಗೆ ಮೂಲಭೂತ ಫಾರ್ಮ್ ಡೇಟಾ ಪ್ರಶ್ನೆಗಳಿಗೆ ಸಹಾಯ ಮಾಡಬಹುದು!\n\n' +
+                  'AI ಚಾಟ್ ಸಕ್ರಿಯಗೊಳಿಸಲು, ದಯವಿಟ್ಟು GEMINI_API_KEY environment variable ಅನ್ನು ಹೊಂದಿಸಿ।'
+        }
+        return jsonify({
+            'response': error_responses.get(language, error_responses['en'])
+        })
             
     except Exception as e:
         return jsonify({'response': f'Well, I hit a snag there: {str(e)}. Mind trying again?'})
@@ -2958,5 +3398,964 @@ def get_all_crop_recommendations():
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 
+# Translation dictionaries for PDF reports
+PDF_TRANSLATIONS = {
+    'en': {
+        'title': 'Detailed Farm Analysis Report',
+        'farm': 'Farm',
+        'overview': 'Overview',
+        'production': 'Production',
+        'storage': 'Storage',
+        'processing': 'Processing',
+        'transportation': 'Transportation',
+        'retail': 'Retail',
+        'consumption': 'Consumption',
+        'waste': 'Waste',
+        'carbonFootprint': 'Carbon Footprint',
+        'aiInsights': 'AI Insights',
+        'recommendations': 'Recommendations',
+        'performanceScore': 'Performance Score',
+        'yield': 'Yield',
+        'spoilage': 'Spoilage',
+        'defects': 'Defects',
+        'delays': 'Delays',
+        'waste': 'Waste',
+        'satisfaction': 'Satisfaction',
+        'pestRisk': 'Pest Risk',
+        'machineryUptime': 'Machinery Uptime',
+        'totalProduction': 'Total Production',
+        'tonnesPerHa': 'tonnes/ha',
+        'kgCO2e': 'kg CO2e',
+        'generatedOn': 'Generated on',
+        'factors': 'Factors Affecting Farm',
+        'predictedProduce': 'Predicted Produce',
+        'currentProduce': 'Current Produce'
+    },
+    'hi': {
+        'title': 'विस्तृत फार्म विश्लेषण रिपोर्ट',
+        'farm': 'फार्म',
+        'overview': 'अवलोकन',
+        'production': 'उत्पादन',
+        'storage': 'भंडारण',
+        'processing': 'प्रसंस्करण',
+        'transportation': 'परिवहन',
+        'retail': 'खुदरा',
+        'consumption': 'उपभोग',
+        'waste': 'अपशिष्ट',
+        'carbonFootprint': 'कार्बन फुटप्रिंट',
+        'aiInsights': 'AI अंतर्दृष्टि',
+        'recommendations': 'सिफारिशें',
+        'performanceScore': 'प्रदर्शन स्कोर',
+        'yield': 'उपज',
+        'spoilage': 'खराबी',
+        'defects': 'दोष',
+        'delays': 'देरी',
+        'waste': 'अपशिष्ट',
+        'satisfaction': 'संतुष्टि',
+        'pestRisk': 'कीट जोखिम',
+        'machineryUptime': 'मशीनरी अपटाइम',
+        'totalProduction': 'कुल उत्पादन',
+        'tonnesPerHa': 'टन/हे',
+        'kgCO2e': 'किग्रा CO2e',
+        'generatedOn': 'तैयार की गई',
+        'factors': 'फार्म को प्रभावित करने वाले कारक',
+        'predictedProduce': 'अनुमानित उत्पादन',
+        'currentProduce': 'वर्तमान उत्पादन'
+    },
+    'kn': {
+        'title': 'ವಿವರವಾದ ಫಾರ್ಮ್ ವಿಶ್ಲೇಷಣೆ ವರದಿ',
+        'farm': 'ಫಾರ್ಮ್',
+        'overview': 'ಅವಲೋಕನ',
+        'production': 'ಉತ್ಪಾದನೆ',
+        'storage': 'ಸಂಗ್ರಹಣೆ',
+        'processing': 'ಸಂಸ್ಕರಣೆ',
+        'transportation': 'ಸಾರಿಗೆ',
+        'retail': 'ಚಿಲ್ಲರೆ',
+        'consumption': 'ಬಳಕೆ',
+        'waste': 'ಕಸ',
+        'carbonFootprint': 'ಕಾರ್ಬನ್ ಫುಟ್ಪ್ರಿಂಟ್',
+        'aiInsights': 'AI ಒಳನೋಟಗಳು',
+        'recommendations': 'ಶಿಫಾರಸುಗಳು',
+        'performanceScore': 'ಪ್ರದರ್ಶನ ಸ್ಕೋರ್',
+        'yield': 'ಉತ್ಪಾದನೆ',
+        'spoilage': 'ಕೆಡುವಿಕೆ',
+        'defects': 'ದೋಷಗಳು',
+        'delays': 'ವಿಳಂಬಗಳು',
+        'waste': 'ಕಸ',
+        'satisfaction': 'ತೃಪ್ತಿ',
+        'pestRisk': 'ಕೀಟ ಅಪಾಯ',
+        'machineryUptime': 'ಯಂತ್ರೋಪಕರಣ ಅಪ್ಟೈಮ್',
+        'totalProduction': 'ಒಟ್ಟು ಉತ್ಪಾದನೆ',
+        'tonnesPerHa': 'ಟನ್/ಹೆ',
+        'kgCO2e': 'ಕೆಜಿ CO2e',
+        'generatedOn': 'ರಚಿಸಲಾಗಿದೆ',
+        'factors': 'ಫಾರ್ಮ್ ಅನ್ನು ಪ್ರಭಾವಿಸುವ ಅಂಶಗಳು',
+        'predictedProduce': 'ಭವಿಷ್ಯವಾಣಿ ಉತ್ಪಾದನೆ',
+        'currentProduce': 'ಪ್ರಸ್ತುತ ಉತ್ಪಾದನೆ'
+    }
+}
+
+
+@app.route('/api/farm/<farm_name>/report', methods=['GET'])
+def generate_farm_report(farm_name):
+    """Generate a comprehensive PDF report for a farm in the specified language"""
+    try:
+        lang = request.args.get('lang', 'en')
+        if lang not in ['en', 'hi', 'kn']:
+            lang = 'en'
+        
+        t = PDF_TRANSLATIONS[lang]
+        
+        # Get all farm data directly
+        data = load_farm_data(farm_name)
+        if data.empty:
+            return jsonify({'error': 'Farm not found'}), 404
+        
+        # Calculate KPIs
+        carbon_footprint = calculate_carbon_footprint(data)
+        kpis = {
+            'total_production': float(data['Yield_tonnes_per_ha'].mean()),
+            'storage_spoilage': float(data['SpoilageRate_%'].mean()),
+            'processing_defects': float(data['DefectRate_%'].mean()),
+            'transport_delays': float((data['DeliveryDelayFlag'].sum() / len(data) * 100)),
+            'waste_percentage': float(data['WastePercentage_%'].mean()),
+            'satisfaction': float(data['SatisfactionScore_0_10'].mean()),
+            'pest_risk': float(data['PestRiskScore'].mean()),
+            'machinery_uptime': float(data['MachineryUptime_%'].mean()),
+            'carbon_footprint': carbon_footprint
+        }
+        
+        # Calculate performance score
+        score = (
+            (kpis['total_production'] / 10 * 20) +
+            ((1 - kpis['storage_spoilage'] / 30) * 15) +
+            ((1 - kpis['processing_defects'] / 15) * 15) +
+            ((1 - kpis['transport_delays'] / 30) * 10) +
+            ((1 - kpis['waste_percentage'] / 25) * 10) +
+            (kpis['satisfaction'] / 10 * 15) +
+            ((1 - kpis['pest_risk'] / 100) * 10) +
+            (kpis['machinery_uptime'] / 100 * 5)
+        )
+        kpis['performance_score'] = min(100, max(0, score))
+        
+        # Production data
+        production = {
+            'yield': float(data['Yield_tonnes_per_ha'].mean()),
+            'pest_risk': float(data['PestRiskScore'].mean()),
+            'machinery_uptime': float(data['MachineryUptime_%'].mean()),
+            'carbon_footprint': {'fertilizer': carbon_footprint.get('fertilizer', 0) if isinstance(carbon_footprint, dict) else 0}
+        }
+        
+        # Storage data
+        storage = {
+            'avg_temp': float(data['StorageTemperature_C'].mean()),
+            'avg_humidity': float(data['Humidity_%'].mean()),
+            'avg_spoilage': float(data['SpoilageRate_%'].mean()),
+            'avg_shelf_life': float(data['PredictedShelfLife_days'].mean())
+        }
+        
+        # Processing data
+        processing = {
+            'avg_defect_rate': float(data['DefectRate_%'].mean()),
+            'avg_uptime': float(data['MachineryUptime_%'].mean()),
+            'avg_packaging_speed': float(data['PackagingSpeed_units_per_min'].mean())
+        }
+        
+        # Transportation data
+        transportation = {
+            'avg_distance': float(data['TransportDistance_km'].mean()),
+            'avg_fuel': float(data['FuelUsage_L_per_100km'].mean()),
+            'avg_delivery_time': float(data['DeliveryTime_hr'].mean()),
+            'delay_percentage': float((data['DeliveryDelayFlag'].sum() / len(data) * 100))
+        }
+        
+        # Retail data
+        retail = {
+            'total_inventory': float(data['RetailInventory_units'].sum()),
+            'avg_sales_velocity': float(data['SalesVelocity_units_per_day'].mean()),
+            'avg_pricing_index': float(data['DynamicPricingIndex'].mean()),
+            'avg_waste': float(data['WastePercentage_%'].mean())
+        }
+        
+        # Consumption data
+        consumption = {
+            'avg_household_waste': float(data['HouseholdWaste_kg'].mean()),
+            'avg_recipe_accuracy': float(data['RecipeRecommendationAccuracy_%'].mean()),
+            'avg_satisfaction': float(data['SatisfactionScore_0_10'].mean())
+        }
+        
+        # Waste data
+        waste = {
+            'avg_segregation': float(data['SegregationAccuracy_%'].mean()),
+            'avg_upcycling': float(data['UpcyclingRate_%'].mean()),
+            'avg_biogas': float(data['BiogasOutput_m3'].mean())
+        }
+        
+        # Get AI insights - ensure we always get a dict
+        ai_insights = {'insights': [], 'recommendations': []}
+        try:
+            insights_result = get_ai_insights(farm_name, 'overview')
+            if isinstance(insights_result, dict):
+                # Ensure insights and recommendations are lists
+                ai_insights = {
+                    'insights': insights_result.get('insights', []) if isinstance(insights_result.get('insights'), list) else [],
+                    'recommendations': insights_result.get('recommendations', []) if isinstance(insights_result.get('recommendations'), list) else []
+                }
+                # If no insights, generate some basic ones from the data
+                if not ai_insights['insights']:
+                    performance_score = kpis.get('performance_score', 0)
+                    if performance_score >= 80:
+                        ai_insights['insights'].append(f"Excellent overall performance with a score of {performance_score:.1f}/100")
+                    elif performance_score >= 65:
+                        ai_insights['insights'].append(f"Good performance with room for improvement (score: {performance_score:.1f}/100)")
+                    else:
+                        ai_insights['insights'].append(f"Performance needs attention (score: {performance_score:.1f}/100)")
+                    
+                    if kpis.get('storage_spoilage', 0) > 10:
+                        ai_insights['recommendations'].append("Reduce storage spoilage by optimizing temperature and humidity controls")
+                    if kpis.get('processing_defects', 0) > 5:
+                        ai_insights['recommendations'].append("Improve quality control to reduce processing defects")
+            else:
+                app.logger.warning(f"AI insights returned non-dict: {type(insights_result)}")
+        except Exception as e:
+            app.logger.error(f"Error getting AI insights: {e}")
+            import traceback
+            traceback.print_exc()
+            # Generate fallback insights from KPIs
+            performance_score = kpis.get('performance_score', 0)
+            ai_insights = {
+                'insights': [f"Farm performance score: {performance_score:.1f}/100"],
+                'recommendations': ["Review individual metrics in the detailed sections for specific improvements"]
+            }
+        
+        # Get crop recommendation
+        crop_rec = None
+        try:
+            optimal_allocation = optimize_crop_allocation()
+            if optimal_allocation and isinstance(optimal_allocation, dict):
+                crop_rec_data = optimal_allocation.get(farm_name)
+                if crop_rec_data and isinstance(crop_rec_data, dict):
+                    price = get_average_crop_price(crop_rec_data.get('crop', ''))
+                    if price is None:
+                        default_prices = {'wheat': 2200, 'corn': 1800, 'lettuce': 1200, 'tomato': 1500}
+                        price = default_prices.get(crop_rec_data.get('crop', '').lower(), 1500)
+                    crop_rec = {
+                        'recommended_crop': crop_rec_data.get('crop', 'N/A').title(),
+                        'recommendation_score': round(crop_rec_data.get('score', 0), 2),
+                        'predicted_price': round(price, 2),
+                        'reasoning': [f"High profitability score: {crop_rec_data.get('score', 0):.1f}", f"Predicted price: ₹{price:.2f}/quintal"]
+                    }
+        except Exception as e:
+            app.logger.error(f"Error getting crop recommendation: {e}")
+            import traceback
+            traceback.print_exc()
+            crop_rec = None
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        try:
+            # Register Unicode fonts for Hindi and Kannada
+            def register_unicode_fonts():
+                """Register Unicode fonts that support Hindi and Kannada scripts"""
+                try:
+                    # Try to register common system fonts that support Unicode
+                    font_paths = [
+                        # macOS fonts (check for Hindi/Kannada specific fonts first)
+                        '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+                        '/Library/Fonts/Arial Unicode.ttf',
+                        '/System/Library/Fonts/Supplemental/Thonburi.ttc',  # Thai but has good Unicode coverage
+                        '/System/Library/Fonts/Helvetica.ttc',
+                        # Windows fonts
+                        'C:/Windows/Fonts/arialuni.ttf',
+                        'C:/Windows/Fonts/mangal.ttf',  # Hindi support
+                        'C:/Windows/Fonts/nirmala.ttf',  # Devanagari
+                        'C:/Windows/Fonts/nirmala-ui.ttf',  # Devanagari UI
+                        'C:/Windows/Fonts/notosansdevanagari-regular.ttf',  # Noto Sans Devanagari
+                        # Linux fonts
+                        '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+                        '/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf',
+                        '/usr/share/fonts/truetype/noto/NotoSansKannada-Regular.ttf',
+                        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                    ]
+                    
+                    # Try to find and register a Unicode font
+                    unicode_font_path = None
+                    for path in font_paths:
+                        if os.path.exists(path):
+                            unicode_font_path = path
+                            break
+                    
+                    if unicode_font_path:
+                        try:
+                            # Register the font with a unique name
+                            font_name = 'UnicodeFont'
+                            pdfmetrics.registerFont(TTFont(font_name, unicode_font_path))
+                            app.logger.info(f"Successfully registered Unicode font: {unicode_font_path}")
+                            return font_name
+                        except Exception as e:
+                            app.logger.warning(f"Could not register font from {unicode_font_path}: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # If no system font found, we cannot generate a proper PDF for Hindi/Kannada
+                    # Return None to indicate failure
+                    app.logger.error("No Unicode font found for Hindi/Kannada PDF generation")
+                    return None
+                except Exception as e:
+                    app.logger.error(f"Error registering Unicode fonts: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+            
+            # Helper function to safely prepare text for PDF (ensure Unicode, but preserve HTML tags)
+            def safe_text(text):
+                """Safely prepare text for PDF by ensuring it's a string and valid Unicode"""
+                if text is None:
+                    return ''
+                # Convert to string if not already
+                text = str(text)
+                # Ensure it's valid Unicode - ReportLab handles Unicode automatically with proper font
+                try:
+                    # Test if text can be encoded as UTF-8
+                    text.encode('utf-8')
+                except UnicodeEncodeError:
+                    # If encoding fails, try to fix it by removing problematic characters
+                    text = text.encode('utf-8', errors='replace').decode('utf-8')
+                return text
+            
+            # Register fonts based on language
+            font_name = None
+            if lang in ['hi', 'kn']:
+                font_name = register_unicode_fonts()
+                # If no Unicode font is available for Hindi/Kannada, return an error
+                if not font_name:
+                    error_messages = {
+                        'hi': 'PDF रिपोर्ट उत्पन्न करने के लिए Unicode फ़ॉन्ट उपलब्ध नहीं है। कृपया सिस्टम फ़ॉन्ट स्थापित करें या English में रिपोर्ट डाउनलोड करें।',
+                        'kn': 'PDF ವರದಿಯನ್ನು ರಚಿಸಲು Unicode ಫಾಂಟ್ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಸಿಸ್ಟಮ್ ಫಾಂಟ್ ಅನ್ನು ಸ್ಥಾಪಿಸಿ ಅಥವಾ ಇಂಗ್ಲೀಷ್‌ನಲ್ಲಿ ವರದಿಯನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ।'
+                    }
+                    return jsonify({
+                        'error': error_messages.get(lang, 'Unicode font not available for PDF generation. Please install system fonts or download report in English.')
+                    }), 500
+            
+            doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Update styles to use Unicode font if available
+            if font_name:
+                # Create custom styles with Unicode font
+                # Create Unicode styles without encoding parameter (ReportLab handles Unicode automatically with proper font)
+                # Get base styles first (before we create Unicode versions)
+                base_normal = styles['Normal']
+                base_heading1 = styles['Heading1']
+                base_heading2 = styles['Heading2']
+                base_heading3 = styles['Heading3']
+                
+                unicode_normal = ParagraphStyle(
+                    'UnicodeNormal',
+                    parent=base_normal,
+                    fontName=font_name
+                )
+                unicode_heading1 = ParagraphStyle(
+                    'UnicodeHeading1',
+                    parent=base_heading1,
+                    fontName=font_name
+                )
+                unicode_heading2 = ParagraphStyle(
+                    'UnicodeHeading2',
+                    parent=base_heading2,
+                    fontName=font_name
+                )
+                unicode_heading3 = ParagraphStyle(
+                    'UnicodeHeading3',
+                    parent=base_heading3,
+                    fontName=font_name
+                )
+                # Add Unicode styles to the stylesheet (can't replace existing styles directly)
+                styles.add(unicode_normal)
+                styles.add(unicode_heading1)
+                styles.add(unicode_heading2)
+                styles.add(unicode_heading3)
+                # Store references to use later (we'll use these instead of default styles)
+                unicode_styles = {
+                    'Normal': unicode_normal,
+                    'Heading1': unicode_heading1,
+                    'Heading2': unicode_heading2,
+                    'Heading3': unicode_heading3
+                }
+            else:
+                # No Unicode font, use default styles
+                unicode_styles = None
+            
+            # Helper to get the right style (Unicode if available, otherwise default)
+            def get_style(style_name):
+                if unicode_styles and style_name in unicode_styles:
+                    return unicode_styles[style_name]
+                return styles[style_name]
+            
+            # Title
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=get_style('Heading1'),
+                fontSize=24,
+                textColor=colors.HexColor('#1a5f7a'),
+                spaceAfter=30,
+                alignment=1  # Center
+            )
+            story.append(Paragraph(safe_text(t['title']), title_style))
+            story.append(Spacer(1, 0.2*inch))
+            
+            # Farm name and date
+            story.append(Paragraph(f"<b>{safe_text(t['farm'])}:</b> {safe_text(farm_name)}", get_style('Heading2')))
+            story.append(Paragraph(f"<b>{safe_text(t['generatedOn'])}:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", get_style('Normal')))
+            story.append(Spacer(1, 0.3*inch))
+            
+            # Overview Section
+            story.append(Paragraph(f"<b>{safe_text(t['overview'])}</b>", get_style('Heading2')))
+            # Helper to create table cells with proper Unicode support
+            def make_table_cell(text):
+                """Create a table cell with proper Unicode encoding"""
+                # Just return the text as string - the table font style will handle rendering
+                # Using Paragraph in tables can cause layout issues, so we rely on font styles
+                return safe_text(str(text))
+            
+            overview_data = [
+                [make_table_cell(t['performanceScore']), make_table_cell(f"{kpis.get('performance_score', 0):.1f}/100")],
+                [make_table_cell(t['yield']), make_table_cell(f"{kpis.get('total_production', 0):.2f} {t['tonnesPerHa']}")],
+                [make_table_cell(t['spoilage']), make_table_cell(f"{kpis.get('storage_spoilage', 0):.2f}%")],
+                [make_table_cell(t['defects']), make_table_cell(f"{kpis.get('processing_defects', 0):.2f}%")],
+                [make_table_cell(t['delays']), make_table_cell(f"{kpis.get('transport_delays', 0):.1f}%")],
+                [make_table_cell(t['waste']), make_table_cell(f"{kpis.get('waste_percentage', 0):.2f}%")],
+                [make_table_cell(t['satisfaction']), make_table_cell(f"{kpis.get('satisfaction', 0):.1f}/10")],
+                [make_table_cell(t['pestRisk']), make_table_cell(f"{kpis.get('pest_risk', 0):.1f}")],
+                [make_table_cell(t['machineryUptime']), make_table_cell(f"{kpis.get('machinery_uptime', 0):.1f}%")]
+            ]
+            if kpis.get('carbon_footprint') and isinstance(kpis['carbon_footprint'], dict):
+                overview_data.append([make_table_cell(t['carbonFootprint']), make_table_cell(f"{kpis['carbon_footprint'].get('total', 0):.2f} {t['kgCO2e']}")])
+            
+            # Use Unicode font for tables if available, otherwise use default
+            # When Unicode font is available, use it for all cells to ensure proper rendering
+            if font_name:
+                table_font = font_name  # Use Unicode font for labels
+                table_font_normal = font_name  # Use Unicode font for all values too
+            else:
+                table_font = 'Helvetica-Bold'
+                table_font_normal = 'Helvetica'
+            
+            overview_table = Table(overview_data, colWidths=[3*inch, 2*inch])
+            overview_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+            ]))
+            story.append(overview_table)
+            story.append(Spacer(1, 0.3*inch))
+            
+            # Production Section - Detailed
+            story.append(Spacer(1, 0.3*inch))
+            story.append(Paragraph(f"<b>{safe_text(t['production'])}</b>", get_style('Heading2')))
+            story.append(Spacer(1, 0.15*inch))
+            
+            # Production metrics
+            prod_data = [
+                [make_table_cell(t['yield']), make_table_cell(f"{production.get('yield', 0):.2f} {t['tonnesPerHa']}")],
+                [make_table_cell(t['pestRisk']), make_table_cell(f"{production.get('pest_risk', 0):.2f}")],
+                [make_table_cell(t['machineryUptime']), make_table_cell(f"{production.get('machinery_uptime', 0):.2f}%")]
+            ]
+            
+            # Add additional production metrics
+            harvest_uptime = float(data['HarvestRobotUptime_%'].mean())
+            fertilizer_usage = float(data['Fertilizer_kg_per_ha'].mean())
+            rainfall = float(data['Rainfall_mm'].mean())
+            yield_std = float(data['Yield_tonnes_per_ha'].std())
+            yield_min = float(data['Yield_tonnes_per_ha'].min())
+            yield_max = float(data['Yield_tonnes_per_ha'].max())
+            
+            prod_data.extend([
+                [make_table_cell('Harvest Robot Uptime'), make_table_cell(f"{harvest_uptime:.2f}%")],
+                [make_table_cell('Average Fertilizer Usage'), make_table_cell(f"{fertilizer_usage:.2f} kg/ha")],
+                [make_table_cell('Average Rainfall'), make_table_cell(f"{rainfall:.2f} mm")],
+                [make_table_cell('Yield Standard Deviation'), make_table_cell(f"{yield_std:.2f} {t['tonnesPerHa']}")],
+                [make_table_cell('Minimum Yield'), make_table_cell(f"{yield_min:.2f} {t['tonnesPerHa']}")],
+                [make_table_cell('Maximum Yield'), make_table_cell(f"{yield_max:.2f} {t['tonnesPerHa']}")]
+            ])
+            
+            if production.get('carbon_footprint') and isinstance(production['carbon_footprint'], dict):
+                prod_data.append([make_table_cell(t['carbonFootprint']), make_table_cell(f"{production['carbon_footprint'].get('fertilizer', 0):.2f} {t['kgCO2e']}")])
+            
+            prod_table = Table(prod_data, colWidths=[3*inch, 2*inch])
+            prod_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+            ]))
+            story.append(prod_table)
+            story.append(Spacer(1, 0.2*inch))
+            
+            # Yield by Crop Type
+            yield_by_crop = data.groupby('CropType')['Yield_tonnes_per_ha'].agg(['mean', 'count', 'min', 'max']).round(2)
+            if not yield_by_crop.empty:
+                story.append(Paragraph("<b>Yield by Crop Type</b>", get_style('Heading3')))
+                story.append(Spacer(1, 0.1*inch))
+                crop_data = [['Crop Type', 'Avg Yield', 'Records', 'Min Yield', 'Max Yield']]
+                for crop, row in yield_by_crop.iterrows():
+                    crop_data.append([
+                        str(crop),
+                        f"{row['mean']:.2f} {t['tonnesPerHa']}",
+                        str(int(row['count'])),
+                        f"{row['min']:.2f} {t['tonnesPerHa']}",
+                        f"{row['max']:.2f} {t['tonnesPerHa']}"
+                    ])
+                crop_table = Table(crop_data, colWidths=[1.2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch])
+                crop_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a5f7a')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white)
+                ]))
+                story.append(crop_table)
+                story.append(Spacer(1, 0.2*inch))
+            
+            # Storage, Processing, Transportation, Retail, Consumption, Waste sections
+            # Define field labels for each language
+            field_labels = {
+                'en': {
+                    'storage': [('Average Temperature', 'avg_temp', '°C'), ('Average Humidity', 'avg_humidity', '%'), ('Average Spoilage', 'avg_spoilage', '%'), ('Average Shelf Life', 'avg_shelf_life', 'days')],
+                    'processing': [('Average Defect Rate', 'avg_defect_rate', '%'), ('Average Uptime', 'avg_uptime', '%'), ('Average Packaging Speed', 'avg_packaging_speed', 'units/min')],
+                    'transportation': [('Average Distance', 'avg_distance', 'km'), ('Average Fuel Usage', 'avg_fuel', 'L/100km'), ('Average Delivery Time', 'avg_delivery_time', 'hours'), ('Delay Percentage', 'delay_percentage', '%')],
+                    'retail': [('Total Inventory', 'total_inventory', 'units'), ('Average Sales Velocity', 'avg_sales_velocity', 'units/day'), ('Average Pricing Index', 'avg_pricing_index', ''), ('Average Waste', 'avg_waste', '%')],
+                    'consumption': [('Average Household Waste', 'avg_household_waste', 'kg'), ('Average Recipe Accuracy', 'avg_recipe_accuracy', '%'), ('Average Satisfaction', 'avg_satisfaction', '/10')],
+                    'waste': [('Average Segregation', 'avg_segregation', '%'), ('Average Upcycling Rate', 'avg_upcycling', '%'), ('Average Biogas Output', 'avg_biogas', 'm³')]
+                },
+                'hi': {
+                    'storage': [('औसत तापमान', 'avg_temp', '°C'), ('औसत आर्द्रता', 'avg_humidity', '%'), ('औसत खराबी', 'avg_spoilage', '%'), ('औसत शेल्फ लाइफ', 'avg_shelf_life', 'दिन')],
+                    'processing': [('औसत दोष दर', 'avg_defect_rate', '%'), ('औसत अपटाइम', 'avg_uptime', '%'), ('औसत पैकेजिंग गति', 'avg_packaging_speed', 'यूनिट/मिनट')],
+                    'transportation': [('औसत दूरी', 'avg_distance', 'किमी'), ('औसत ईंधन उपयोग', 'avg_fuel', 'L/100km'), ('औसत डिलीवरी समय', 'avg_delivery_time', 'घंटे'), ('देरी प्रतिशत', 'delay_percentage', '%')],
+                    'retail': [('कुल इन्वेंटरी', 'total_inventory', 'यूनिट'), ('औसत बिक्री वेग', 'avg_sales_velocity', 'यूनिट/दिन'), ('औसत मूल्य सूचकांक', 'avg_pricing_index', ''), ('औसत अपशिष्ट', 'avg_waste', '%')],
+                    'consumption': [('औसत घरेलू अपशिष्ट', 'avg_household_waste', 'किग्रा'), ('औसत रेसिपी सटीकता', 'avg_recipe_accuracy', '%'), ('औसत संतुष्टि', 'avg_satisfaction', '/10')],
+                    'waste': [('औसत पृथक्करण', 'avg_segregation', '%'), ('औसत अपसाइक्लिंग दर', 'avg_upcycling', '%'), ('औसत बायोगैस उत्पादन', 'avg_biogas', 'm³')]
+                },
+                'kn': {
+                    'storage': [('ಸರಾಸರಿ ತಾಪಮಾನ', 'avg_temp', '°C'), ('ಸರಾಸರಿ ಆರ್ದ್ರತೆ', 'avg_humidity', '%'), ('ಸರಾಸರಿ ಕೆಡುವಿಕೆ', 'avg_spoilage', '%'), ('ಸರಾಸರಿ ಶೆಲ್ಫ್ ಲೈಫ್', 'avg_shelf_life', 'ದಿನಗಳು')],
+                    'processing': [('ಸರಾಸರಿ ದೋಷ ದರ', 'avg_defect_rate', '%'), ('ಸರಾಸರಿ ಅಪ್ಟೈಮ್', 'avg_uptime', '%'), ('ಸರಾಸರಿ ಪ್ಯಾಕೇಜಿಂಗ್ ವೇಗ', 'avg_packaging_speed', 'ಯೂನಿಟ್/ನಿಮಿಷ')],
+                    'transportation': [('ಸರಾಸರಿ ದೂರ', 'avg_distance', 'ಕಿಮೀ'), ('ಸರಾಸರಿ ಇಂಧನ ಬಳಕೆ', 'avg_fuel', 'L/100km'), ('ಸರಾಸರಿ ವಿತರಣೆ ಸಮಯ', 'avg_delivery_time', 'ಗಂಟೆಗಳು'), ('ವಿಳಂಬ ಶೇಕಡಾವಾರು', 'delay_percentage', '%')],
+                    'retail': [('ಒಟ್ಟು ಸ್ಟಾಕ್', 'total_inventory', 'ಯೂನಿಟ್ಗಳು'), ('ಸರಾಸರಿ ಮಾರಾಟ ವೇಗ', 'avg_sales_velocity', 'ಯೂನಿಟ್/ದಿನ'), ('ಸರಾಸರಿ ಬೆಲೆ ಸೂಚ್ಯಂಕ', 'avg_pricing_index', ''), ('ಸರಾಸರಿ ಕಸ', 'avg_waste', '%')],
+                    'consumption': [('ಸರಾಸರಿ ಮನೆ ಕಸ', 'avg_household_waste', 'ಕೆಜಿ'), ('ಸರಾಸರಿ ರೆಸಿಪಿ ನಿಖರತೆ', 'avg_recipe_accuracy', '%'), ('ಸರಾಸರಿ ತೃಪ್ತಿ', 'avg_satisfaction', '/10')],
+                    'waste': [('ಸರಾಸರಿ ವಿಂಗಡಣೆ', 'avg_segregation', '%'), ('ಸರಾಸರಿ ಅಪ್ಸೈಕ್ಲಿಂಗ್ ದರ', 'avg_upcycling', '%'), ('ಸರಾಸರಿ ಬಯೋಗ್ಯಾಸ್ ಉತ್ಪಾದನೆ', 'avg_biogas', 'm³')]
+                }
+            }
+            
+            sections = [
+                ('storage', storage, t['storage'], field_labels[lang]['storage']),
+                ('processing', processing, t['processing'], field_labels[lang]['processing']),
+                ('transportation', transportation, t['transportation'], field_labels[lang]['transportation']),
+                ('retail', retail, t['retail'], field_labels[lang]['retail']),
+                ('consumption', consumption, t['consumption'], field_labels[lang]['consumption']),
+                ('waste', waste, t['waste'], field_labels[lang]['waste'])
+            ]
+            
+            for section_name, section_data, section_title, section_fields in sections:
+                if section_data and isinstance(section_data, dict):
+                    has_content = any(section_data.get(field[1]) is not None for field in section_fields)
+                    if has_content:
+                        # Use Spacer instead of PageBreak to avoid blank pages
+                        story.append(Spacer(1, 0.3*inch))
+                        story.append(Paragraph(f"<b>{safe_text(section_title)}</b>", get_style('Heading2')))
+                        story.append(Spacer(1, 0.15*inch))
+                        
+                        # Create table with section data
+                        section_table_data = []
+                        for field_label, field_key, field_unit in section_fields:
+                            value = section_data.get(field_key)
+                            if value is not None:
+                                if isinstance(value, (int, float)):
+                                    section_table_data.append([make_table_cell(field_label), make_table_cell(f"{value:.2f} {field_unit}")])
+                                else:
+                                    section_table_data.append([make_table_cell(field_label), make_table_cell(str(value))])
+                        
+                        if section_table_data:
+                            section_table = Table(section_table_data, colWidths=[3*inch, 2*inch])
+                            section_table.setStyle(TableStyle([
+                                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+                                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                                ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                                ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+                            ]))
+                            story.append(section_table)
+                            
+                            # Add detailed breakdowns for each section
+                            if section_name == 'storage':
+                                story.append(Spacer(1, 0.15*inch))
+                                story.append(Paragraph("<b>Storage Conditions Analysis</b>", get_style('Heading3')))
+                                temp_min = float(data['StorageTemperature_C'].min())
+                                temp_max = float(data['StorageTemperature_C'].max())
+                                humidity_min = float(data['Humidity_%'].min())
+                                humidity_max = float(data['Humidity_%'].max())
+                                storage_days_avg = float(data['StorageDays'].mean())
+                                storage_analysis = [
+                                    ['Temperature Range', f"{temp_min:.1f}°C - {temp_max:.1f}°C"],
+                                    ['Humidity Range', f"{humidity_min:.1f}% - {humidity_max:.1f}%"],
+                                    ['Average Storage Days', f"{storage_days_avg:.1f} days"],
+                                    ['Optimal Temperature Range', '2-5°C'],
+                                    ['Optimal Humidity Range', '75-85%']
+                                ]
+                                analysis_table = Table(storage_analysis, colWidths=[3*inch, 2*inch])
+                                analysis_table.setStyle(TableStyle([
+                                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+                                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                                    ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                                    ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey)
+                                ]))
+                                story.append(analysis_table)
+                            
+                            elif section_name == 'processing':
+                                story.append(Spacer(1, 0.15*inch))
+                                story.append(Paragraph("<b>Processing Details by Process Type</b>", get_style('Heading3')))
+                                defect_by_process = data.groupby('ProcessType')['DefectRate_%'].agg(['mean', 'count']).round(2)
+                                if not defect_by_process.empty:
+                                    process_data = [['Process Type', 'Avg Defect Rate (%)', 'Records']]
+                                    for process, row in defect_by_process.iterrows():
+                                        process_data.append([str(process), f"{row['mean']:.2f}", str(int(row['count']))])
+                                    process_table = Table(process_data, colWidths=[2*inch, 1.5*inch, 1.5*inch])
+                                    process_table.setStyle(TableStyle([
+                                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a5f7a')),
+                                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                        ('FONTSIZE', (0, 0), (-1, -1), 9),
+                                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                                        ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+                                    ]))
+                                    story.append(process_table)
+                            
+                            elif section_name == 'transportation':
+                                story.append(Spacer(1, 0.15*inch))
+                                story.append(Paragraph("<b>Transportation Analysis</b>", get_style('Heading3')))
+                                transport_modes = data['TransportMode'].value_counts()
+                                total_distance = float(data['TransportDistance_km'].sum())
+                                total_fuel = float((data['TransportDistance_km'] * data['FuelUsage_L_per_100km'] / 100).sum())
+                                delay_count = int(data['DeliveryDelayFlag'].sum())
+                                total_deliveries = len(data)
+                                
+                                trans_analysis = [
+                                    ['Total Distance Traveled', f"{total_distance:.0f} km"],
+                                    ['Total Fuel Consumed', f"{total_fuel:.2f} L"],
+                                    ['Delayed Deliveries', f"{delay_count} out of {total_deliveries}"],
+                                    ['On-Time Delivery Rate', f"{(total_deliveries-delay_count)/total_deliveries*100:.1f}%"]
+                                ]
+                                if not transport_modes.empty:
+                                    trans_analysis.append(['Primary Transport Mode', transport_modes.index[0]])
+                                
+                                trans_table = Table(trans_analysis, colWidths=[3*inch, 2*inch])
+                                trans_table.setStyle(TableStyle([
+                                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+                                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
+                                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                                    ('GRID', (0, 0), (-1, -1), 1, colors.lightgrey)
+                                ]))
+                                story.append(trans_table)
+                            
+                            elif section_name == 'waste':
+                                story.append(Spacer(1, 0.15*inch))
+                                story.append(Paragraph("<b>Waste Type Distribution</b>", get_style('Heading3')))
+                                waste_types = data['WasteType'].value_counts()
+                                if not waste_types.empty:
+                                    waste_data = [['Waste Type', 'Count', 'Percentage']]
+                                    total_waste_records = waste_types.sum()
+                                    for waste_type, count in waste_types.items():
+                                        pct = (count / total_waste_records * 100) if total_waste_records > 0 else 0
+                                        waste_data.append([str(waste_type), str(int(count)), f"{pct:.1f}%"])
+                                    waste_table = Table(waste_data, colWidths=[2*inch, 1.5*inch, 1.5*inch])
+                                    waste_table.setStyle(TableStyle([
+                                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a5f7a')),
+                                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                        ('FONTSIZE', (0, 0), (-1, -1), 9),
+                                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                                        ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+                                    ]))
+                                    story.append(waste_table)
+                            
+                            story.append(Spacer(1, 0.2*inch))
+            
+            # AI Insights and Recommendations
+            insights_list = ai_insights.get('insights', []) if isinstance(ai_insights.get('insights'), list) else []
+            recommendations_list = ai_insights.get('recommendations', []) if isinstance(ai_insights.get('recommendations'), list) else []
+            
+            # Always show AI Insights section, even if empty (with fallback content)
+            story.append(Spacer(1, 0.3*inch))
+            story.append(Paragraph(f"<b>{safe_text(t['aiInsights'])}</b>", get_style('Heading2')))
+            story.append(Spacer(1, 0.15*inch))
+            
+            if insights_list:
+                for insight in insights_list:
+                    # Remove emojis for PDF compatibility
+                    clean_insight = insight.encode('ascii', 'ignore').decode('ascii') if isinstance(insight, str) else str(insight)
+                    story.append(Paragraph(f"• {safe_text(clean_insight)}", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+            else:
+                # Generate comprehensive fallback insights from data
+                performance_score = kpis.get('performance_score', 0)
+                story.append(Paragraph(f"• Overall Performance Score: {performance_score:.1f}/100", get_style('Normal')))
+                story.append(Spacer(1, 0.08*inch))
+                
+                if kpis.get('total_production', 0) > 7:
+                    story.append(Paragraph(f"• Production yield is above average at {kpis.get('total_production', 0):.2f} tonnes/ha", get_style('Normal')))
+                elif kpis.get('total_production', 0) < 5:
+                    story.append(Paragraph(f"• Production yield is below optimal at {kpis.get('total_production', 0):.2f} tonnes/ha - improvement needed", get_style('Normal')))
+                else:
+                    story.append(Paragraph(f"• Production yield is at {kpis.get('total_production', 0):.2f} tonnes/ha - within acceptable range", get_style('Normal')))
+                story.append(Spacer(1, 0.08*inch))
+                
+                if kpis.get('storage_spoilage', 0) > 10:
+                    story.append(Paragraph(f"• Storage spoilage rate of {kpis.get('storage_spoilage', 0):.2f}% requires attention", get_style('Normal')))
+                else:
+                    story.append(Paragraph(f"• Storage spoilage is well controlled at {kpis.get('storage_spoilage', 0):.2f}%", get_style('Normal')))
+                story.append(Spacer(1, 0.08*inch))
+                
+                if kpis.get('processing_defects', 0) > 5:
+                    story.append(Paragraph(f"• Processing defect rate of {kpis.get('processing_defects', 0):.2f}% indicates quality control improvements needed", get_style('Normal')))
+                else:
+                    story.append(Paragraph(f"• Processing quality is good with {kpis.get('processing_defects', 0):.2f}% defect rate", get_style('Normal')))
+                story.append(Spacer(1, 0.08*inch))
+                
+                if kpis.get('transport_delays', 0) > 10:
+                    story.append(Paragraph(f"• Transportation delays at {kpis.get('transport_delays', 0):.1f}% suggest logistics optimization opportunities", get_style('Normal')))
+                else:
+                    story.append(Paragraph(f"• Transportation efficiency is good with {kpis.get('transport_delays', 0):.1f}% delay rate", get_style('Normal')))
+                story.append(Spacer(1, 0.08*inch))
+                
+                if kpis.get('carbon_footprint') and isinstance(kpis['carbon_footprint'], dict):
+                    total_carbon = kpis['carbon_footprint'].get('total', 0)
+                    story.append(Paragraph(f"• Total carbon footprint: {total_carbon:.2f} kg CO2e", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+            
+            if recommendations_list:
+                story.append(Spacer(1, 0.15*inch))
+                story.append(Paragraph(f"<b>{safe_text(t['recommendations'])}</b>", get_style('Heading3')))
+                story.append(Spacer(1, 0.1*inch))
+                for rec in recommendations_list:
+                    clean_rec = rec.encode('ascii', 'ignore').decode('ascii') if isinstance(rec, str) else str(rec)
+                    story.append(Paragraph(f"• {safe_text(clean_rec)}", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+            else:
+                # Generate fallback recommendations
+                story.append(Spacer(1, 0.15*inch))
+                story.append(Paragraph(f"<b>{safe_text(t['recommendations'])}</b>", get_style('Heading3')))
+                story.append(Spacer(1, 0.1*inch))
+                
+                if kpis.get('storage_spoilage', 0) > 10:
+                    story.append(Paragraph("• Optimize storage temperature and humidity controls to reduce spoilage", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+                if kpis.get('processing_defects', 0) > 5:
+                    story.append(Paragraph("• Implement quality checkpoints and staff training to reduce defects", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+                if kpis.get('transport_delays', 0) > 10:
+                    story.append(Paragraph("• Review delivery routes and carrier performance to improve on-time delivery", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+                if kpis.get('pest_risk', 0) > 50:
+                    story.append(Paragraph("• Implement integrated pest management (IPM) strategies", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+                if kpis.get('machinery_uptime', 0) < 90:
+                    story.append(Paragraph("• Schedule preventive maintenance to improve machinery uptime", get_style('Normal')))
+                    story.append(Spacer(1, 0.08*inch))
+            
+            # Crop Recommendation
+            if crop_rec:
+                story.append(Spacer(1, 0.3*inch))
+                crop_rec_title = {
+                    'en': 'Crop Recommendation',
+                    'hi': 'फसल सिफारिश',
+                    'kn': 'ಬೆಳೆ ಶಿಫಾರಸು'
+                }
+                story.append(Paragraph(f"<b>{safe_text(crop_rec_title.get(lang, 'Crop Recommendation'))}</b>", get_style('Heading2')))
+                story.append(Spacer(1, 0.15*inch))
+                
+                recommended_crop_label = {
+                    'en': 'Recommended Crop',
+                    'hi': 'अनुशंसित फसल',
+                    'kn': 'ಶಿಫಾರಸು ಮಾಡಿದ ಬೆಳೆ'
+                }
+                profitability_label = {
+                    'en': 'Profitability Score',
+                    'hi': 'लाभप्रदता स्कोर',
+                    'kn': 'ಲಾಭದಾಯಕತೆ ಸ್ಕೋರ್'
+                }
+                price_label = {
+                    'en': 'Predicted Price',
+                    'hi': 'अनुमानित मूल्य',
+                    'kn': 'ಭವಿಷ್ಯವಾಣಿ ಬೆಲೆ'
+                }
+                reasoning_label = {
+                    'en': 'Reasoning',
+                    'hi': 'तर्क',
+                    'kn': 'ತಾರ್ಕಿಕತೆ'
+                }
+                
+                crop_rec_data = [
+                    [recommended_crop_label.get(lang, 'Recommended Crop'), crop_rec.get('recommended_crop', 'N/A')],
+                    [profitability_label.get(lang, 'Profitability Score'), f"{crop_rec.get('recommendation_score', 0):.1f}/100"],
+                    [price_label.get(lang, 'Predicted Price'), f"₹{crop_rec.get('predicted_price', 0):.2f}/quintal"]
+                ]
+                
+                crop_rec_table = Table(crop_rec_data, colWidths=[3*inch, 2*inch])
+                crop_rec_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+                ]))
+                story.append(crop_rec_table)
+                
+                if crop_rec.get('reasoning'):
+                    story.append(Spacer(1, 0.15*inch))
+                    story.append(Paragraph(f"<b>{safe_text(reasoning_label.get(lang, 'Reasoning'))}:</b>", get_style('Heading3')))
+                    story.append(Spacer(1, 0.1*inch))
+                    for reason in crop_rec['reasoning']:
+                        story.append(Paragraph(f"• {safe_text(reason)}", get_style('Normal')))
+                        story.append(Spacer(1, 0.08*inch))
+            
+            # Add Summary Section at the end
+            story.append(Spacer(1, 0.3*inch))
+            summary_title = {
+                'en': 'Executive Summary',
+                'hi': 'कार्यकारी सारांश',
+                'kn': 'ಕಾರ್ಯನಿರ್ವಾಹಕ ಸಾರಾಂಶ'
+            }
+            story.append(Paragraph(f"<b>{safe_text(summary_title.get(lang, 'Executive Summary'))}</b>", get_style('Heading2')))
+            story.append(Spacer(1, 0.15*inch))
+            
+            summary_text_en = f"""
+            This comprehensive report provides a detailed analysis of {farm_name}'s operations across all stages of the food supply chain. 
+            The farm achieved an overall performance score of {kpis.get('performance_score', 0):.1f}/100, with key metrics including:
+            • Production yield of {kpis.get('total_production', 0):.2f} tonnes per hectare
+            • Storage spoilage rate of {kpis.get('storage_spoilage', 0):.2f}%
+            • Processing defect rate of {kpis.get('processing_defects', 0):.2f}%
+            • Transportation delay rate of {kpis.get('transport_delays', 0):.1f}%
+            • Customer satisfaction score of {kpis.get('satisfaction', 0):.1f}/10
+            """
+            
+            summary_text_hi = f"""
+            यह व्यापक रिपोर्ट खाद्य आपूर्ति श्रृंखला के सभी चरणों में {farm_name} के संचालन का विस्तृत विश्लेषण प्रदान करती है।
+            फार्म ने {kpis.get('performance_score', 0):.1f}/100 का समग्र प्रदर्शन स्कोर प्राप्त किया, जिसमें प्रमुख मेट्रिक्स शामिल हैं।
+            """
+            
+            summary_text_kn = f"""
+            ಈ ಸಮಗ್ರ ವರದಿಯು ಆಹಾರ ಸರಬರಾಜು ಸರಪಳಿಯ ಎಲ್ಲಾ ಹಂತಗಳಲ್ಲಿ {farm_name} ನ ಕಾರ್ಯಾಚರಣೆಗಳ ವಿವರವಾದ ವಿಶ್ಲೇಷಣೆಯನ್ನು ಒದಗಿಸುತ್ತದೆ।
+            ಫಾರ್ಮ್ {kpis.get('performance_score', 0):.1f}/100 ರ ಒಟ್ಟು ಪ್ರದರ್ಶನ ಸ್ಕೋರ್ ಸಾಧಿಸಿದೆ, ಪ್ರಮುಖ ಮೆಟ್ರಿಕ್ಸ್ಗಳೊಂದಿಗೆ।
+            """
+            
+            summary_text = summary_text_en if lang == 'en' else (summary_text_hi if lang == 'hi' else summary_text_kn)
+            story.append(Paragraph(safe_text(summary_text), get_style('Normal')))
+            story.append(Spacer(1, 0.15*inch))
+            
+            # Add carbon footprint breakdown if available
+            if kpis.get('carbon_footprint') and isinstance(kpis['carbon_footprint'], dict):
+                carbon_title = {
+                    'en': 'Carbon Footprint Breakdown',
+                    'hi': 'कार्बन फुटप्रिंट विभाजन',
+                    'kn': 'ಕಾರ್ಬನ್ ಫುಟ್ಪ್ರಿಂಟ್ ವಿಭಜನೆ'
+                }
+                story.append(Paragraph(f"<b>{safe_text(carbon_title.get(lang, 'Carbon Footprint Breakdown'))}</b>", get_style('Heading3')))
+                story.append(Spacer(1, 0.1*inch))
+                
+                carbon_data = [
+                    [make_table_cell('Total Carbon Footprint'), make_table_cell(f"{kpis['carbon_footprint'].get('total', 0):.2f} {t['kgCO2e']}")],
+                    [make_table_cell('Fertilizer Emissions'), make_table_cell(f"{kpis['carbon_footprint'].get('fertilizer', 0):.2f} {t['kgCO2e']}")],
+                    [make_table_cell('Transportation Emissions'), make_table_cell(f"{kpis['carbon_footprint'].get('transportation', 0):.2f} {t['kgCO2e']}")],
+                    [make_table_cell('Storage Emissions'), make_table_cell(f"{kpis['carbon_footprint'].get('storage', 0):.2f} {t['kgCO2e']}")],
+                    [make_table_cell('Processing Emissions'), make_table_cell(f"{kpis['carbon_footprint'].get('processing', 0):.2f} {t['kgCO2e']}")],
+                    [make_table_cell('Waste Emissions'), make_table_cell(f"{kpis['carbon_footprint'].get('waste', 0):.2f} {t['kgCO2e']}")]
+                ]
+                
+                carbon_table = Table(carbon_data, colWidths=[3*inch, 2*inch])
+                carbon_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, -1), table_font_normal),  # Apply Unicode font to ALL cells
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+                ]))
+                story.append(carbon_table)
+            
+            # Build PDF - ensure story is not empty
+            if not story:
+                raise ValueError("PDF story is empty - no content to generate")
+            
+            doc.build(story)
+            buffer.seek(0)
+            
+            # Get the PDF bytes
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+            
+            # Verify PDF was generated (PDF files start with %PDF)
+            if not pdf_bytes.startswith(b'%PDF'):
+                raise ValueError("Generated file is not a valid PDF")
+            
+            # Create response with proper headers
+            from flask import make_response
+            response = make_response(pdf_bytes)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={farm_name}_Report_{lang}.pdf'
+            response.headers['Content-Length'] = len(pdf_bytes)
+            
+            return response
+            
+        except Exception as build_error:
+            if not buffer.closed:
+                buffer.close()
+            app.logger.error(f"PDF build error: {build_error}")
+            import traceback
+            traceback.print_exc()
+            raise build_error
+    
+    except Exception as e:
+        app.logger.error(f"Error generating report: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error generating report: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
+    # Initialize detection model on startup (optional - can be lazy loaded)
+    # init_detection_model()
     app.run(debug=True, port=5003) 
