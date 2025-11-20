@@ -3322,7 +3322,7 @@ def get_crop_recommendation(farm_name):
             reasoning.append(f"{recommended_crop.title()} shows excellent market potential")
         
         reasoning.append(f"Predicted average price: ₹{avg_price:.2f}/quintal")
-        reasoning.append(f"Profitability score: {farm_recommendation['score']:.1f} (out of 100)")
+        reasoning.append(f"Profitability score: {farm_recommendation['score']:.1f}")
         
         if other_recommendations:
             other_crops = [v for k, v in other_recommendations.items() if v != recommended_crop]

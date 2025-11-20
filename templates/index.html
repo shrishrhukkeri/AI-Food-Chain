@@ -797,7 +797,6 @@
         <div class="sidebar-item" data-section="retail" onclick="showSection('retail')"><span id="sidebar-retail-icon"></span><span data-translate="sidebar.retail">Retail</span></div>
         <div class="sidebar-item" data-section="price" onclick="showSection('price')"><span id="sidebar-price-icon"></span><span data-translate="sidebar.price">Price Prediction</span></div>
         <div class="sidebar-item" data-section="recommendation" onclick="showSection('recommendation')" style="display: flex; align-items: center; gap: 10px;"><span id="sidebar-recommendation-icon" style="display: inline-flex; align-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="starGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" /><stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" /><stop offset="100%" style="stop-color:#FF6347;stop-opacity:1" /></linearGradient><linearGradient id="badgeGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea;stop-opacity:1" /><stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" /></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#badgeGrad1)"/><path d="M12 2L14.09 8.26L20 9.27L15 13.14L16.18 19.02L12 15.77L7.82 19.02L9 13.14L4 9.27L9.91 8.26L12 2Z" fill="url(#starGrad1)" stroke="#fff" stroke-width="0.5"/><path d="M10 12L11.5 13.5L14 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span><span data-translate="sidebar.recommendation">Crop Recommendation</span></div>
-        <div class="sidebar-item" data-section="consumption" onclick="showSection('consumption')"><span id="sidebar-consumption-icon"></span><span data-translate="sidebar.consumption">Consumption</span></div>
         <div class="sidebar-item" data-section="waste" onclick="showSection('waste')"><span id="sidebar-waste-icon"></span><span data-translate="sidebar.waste">Waste</span></div>
         <div class="sidebar-item" data-section="security" onclick="showSection('security')"><span id="sidebar-security-icon"></span><span data-translate="sidebar.security">Security</span></div>
     </div>
@@ -860,13 +859,6 @@
                 <div id="retail-container"></div>
                 <div class="chart-container farm-stage-charts"><h3><span id="retail-chart-sparkle-icon"></span><span data-translate="charts.inventorySales">Inventory & Sales</span></h3><div class="chart-wrapper"><canvas id="retailChart1"></canvas></div></div>
                 <button class="details-button" onclick="viewFarmDetails('retail')"><span id="retail-button-icon"></span><span data-translate="buttons.viewRetail">View Retail Details</span></button>
-            </div>
-
-            <div id="consumption" class="section">
-                <div class="section-title"><h2 style="color: #1a5f7a; display: flex; align-items: center; gap: 8px;"><span id="consumption-title-icon"></span><span data-translate="sections.consumption">Consumption & Household</span></h2><span id="consumption-sparkle-icon"></span></div>
-                <div id="consumption-container"></div>
-                <div class="chart-container farm-stage-charts"><h3><span id="consumption-chart-sparkle-icon"></span><span data-translate="charts.householdMetrics">Household Metrics</span></h3><div class="chart-wrapper"><canvas id="consumptionChart1"></canvas></div></div>
-                <button class="details-button" onclick="viewFarmDetails('consumption')"><span id="consumption-button-icon"></span><span data-translate="buttons.viewConsumption">View Consumption Details</span></button>
             </div>
 
             <div id="price" class="section">
@@ -975,7 +967,6 @@
             processing: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" fill="#e67e22" stroke="#d35400" stroke-width="1.5"/><path d="M12 6V12L16 14" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>',
             transportation: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="6" width="14" height="11" fill="#e74c3c" stroke="#c0392b" stroke-width="1.2" rx="0.5"/><rect x="17" y="8" width="5" height="9" fill="#95a5a6" stroke="#7f8c8d" stroke-width="1.2" rx="0.5"/><path d="M3 16H15V17H3V16Z" fill="#c0392b" opacity="0.8"/><path d="M3 12H15V13H3V12Z" fill="#c0392b" opacity="0.8"/><rect x="18" y="10" width="3" height="4" fill="#3498db" opacity="0.5" rx="0.2"/><path d="M18.5 11H19.5" stroke="#2980b9" stroke-width="0.7" stroke-linecap="round"/><path d="M18.5 13H19.5" stroke="#2980b9" stroke-width="0.7" stroke-linecap="round"/><path d="M2 17H15L16 14H18L19 17H21V18H19.5C19.5 19.1046 18.6046 20 17.5 20C16.3954 20 15.5 19.1046 15.5 18H8.5C8.5 19.1046 7.60457 20 6.5 20C5.39543 20 4.5 19.1046 4.5 18H2V17Z" fill="#95a5a6" stroke="#7f8c8d" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1"/><circle cx="6.5" cy="18" r="1.2" fill="#e74c3c"/><circle cx="17.5" cy="18" r="2" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1"/><circle cx="17.5" cy="18" r="1.2" fill="#e74c3c"/><path d="M16 14L15 10H2" stroke="#7f8c8d" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/><rect x="19" y="14" width="2.5" height="2.5" fill="#7f8c8d" opacity="0.6" rx="0.2"/></svg>',
             retail: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 21H21" stroke="#9b59b6" stroke-width="2" stroke-linecap="round"/><path d="M5 21V7L12 3L19 7V21" stroke="#9b59b6" stroke-width="1.5"/><path d="M9 9V21" stroke="#9b59b6" stroke-width="1.5"/><path d="M15 9V21" stroke="#9b59b6" stroke-width="1.5"/><rect x="7" y="11" width="10" height="4" fill="#9b59b6" opacity="0.3"/></svg>',
-            consumption: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7" r="4" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5"/><circle cx="15" cy="7" r="4" fill="#e74c3c" stroke="#c0392b" stroke-width="1.5"/><path d="M3 21C3 17 5.68629 14 9 14C12.3137 14 15 17 15 21" stroke="#c0392b" stroke-width="1.5" stroke-linecap="round"/><path d="M15 21C15 17 17.6863 14 21 14" stroke="#c0392b" stroke-width="1.5" stroke-linecap="round"/></svg>',
             waste: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="#16a085" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="#16a085" stroke-width="1.5" stroke-linecap="round"/><path d="M10 11V17" stroke="#16a085" stroke-width="1.5" stroke-linecap="round"/><path d="M14 11V17" stroke="#16a085" stroke-width="1.5" stroke-linecap="round"/></svg>',
             security: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="7" width="18" height="12" rx="2" fill="#2c3e50" stroke="#34495e" stroke-width="1.5"/><circle cx="12" cy="13" r="3" fill="#3498db" stroke="#2980b9" stroke-width="1.5"/><path d="M12 10V13L14 15" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M6 7V5C6 3.89543 6.89543 3 8 3H16C17.1046 3 18 3.89543 18 5V7" stroke="#34495e" stroke-width="1.5"/><circle cx="8" cy="19" r="1" fill="#e74c3c"/><circle cx="16" cy="19" r="1" fill="#27ae60"/></svg>',
             overview: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1" fill="#3498db" stroke="#2980b9" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" fill="#27ae60" stroke="#1e8449" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" fill="#e67e22" stroke="#d35400" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" fill="#9b59b6" stroke="#8e44ad" stroke-width="1.5"/></svg>',
@@ -993,7 +984,6 @@
             inventory: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="7" width="18" height="14" rx="2" fill="#9b59b6" stroke="#8e44ad" stroke-width="1.5"/><path d="M8 7V5C8 3.89543 8.89543 3 10 3H14C15.1046 3 16 3.89543 16 5V7" stroke="#8e44ad" stroke-width="1.5"/><path d="M8 12H16M8 16H16" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>',
             sales: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H5L7.68 14.39C7.77144 14.8504 8.02191 15.264 8.38755 15.5583C8.75318 15.8526 9.2107 16.009 9.68 16H19.4C19.8693 16.009 20.3268 15.8526 20.6925 15.5583C21.0581 15.264 21.3086 14.8504 21.4 14.39L23 8H6" stroke="#27ae60" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="20" r="1" fill="#27ae60"/><circle cx="20" cy="20" r="1" fill="#27ae60"/></svg>',
             household: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12L5 10M5 10L12 3L19 10M5 10V20C5 20.5523 5.44772 21 6 21H9M19 10L21 12M19 10V20C19 20.5523 18.5523 21 18 21H15M9 21C9.55228 21 10 20.5523 10 20V16C10 15.4477 10.4477 15 11 15H13C13.5523 15 14 15.4477 14 16V20C14 20.5523 14.4477 21 15 21M9 21H15" stroke="#e74c3c" stroke-width="1.5" stroke-linecap="round"/></svg>',
-            satisfaction: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="#f39c12" stroke="#e67e22" stroke-width="1.5"/><circle cx="9" cy="9" r="1.5" fill="#2c3e50"/><circle cx="15" cy="9" r="1.5" fill="#2c3e50"/><path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke="#2c3e50" stroke-width="1.5" stroke-linecap="round"/></svg>',
             ai: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8" fill="#667eea" stroke="#764ba2" stroke-width="1.5"/><path d="M9 12L11 14L15 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
             sparkle: '<svg class="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L13.5 8.5L20 10L13.5 11.5L12 18L10.5 11.5L4 10L10.5 8.5L12 2Z" fill="#f39c12" stroke="#e67e22" stroke-width="1"/></svg>'
         };
@@ -1104,7 +1094,6 @@
                     best: '✓ BEST',
                     marketStrategy: 'Cross-Farm Market Strategy',
                     marketStrategyDesc: 'To prevent market saturation and maximize prices, farms are allocated different crops:',
-                    outOf: 'out of 100',
                     perHectare: 'per quintal',
                     tonnesPerHectare: 'tonnes/hectare',
                     estProfit: 'Est. Profit/ha'
@@ -1115,7 +1104,6 @@
                     defects: 'Defects',
                     delays: 'Delays',
                     waste: 'Waste',
-                    satisfaction: 'Satisfaction',
                     pestRisk: 'Pest Risk',
                     machineryUptime: 'Machinery Uptime',
                     harvestUptime: 'Harvest Uptime',
@@ -1251,7 +1239,6 @@
                     best: '✓ सर्वश्रेष्ठ',
                     marketStrategy: 'क्रॉस-फार्म बाजार रणनीति',
                     marketStrategyDesc: 'बाजार संतृप्ति को रोकने और मूल्यों को अधिकतम करने के लिए, फार्मों को अलग-अलग फसलें आवंटित की जाती हैं:',
-                    outOf: '100 में से',
                     perHectare: 'प्रति क्विंटल',
                     tonnesPerHectare: 'टन/हेक्टेयर',
                     estProfit: 'अनुमानित लाभ/हे'
@@ -1262,7 +1249,6 @@
                     defects: 'दोष',
                     delays: 'देरी',
                     waste: 'अपशिष्ट',
-                    satisfaction: 'संतुष्टि',
                     pestRisk: 'कीट जोखिम',
                     machineryUptime: 'मशीनरी अपटाइम',
                     harvestUptime: 'कटाई अपटाइम',
@@ -1398,7 +1384,6 @@
                     best: '✓ ಅತ್ಯುತ್ತಮ',
                     marketStrategy: 'ಕ್ರಾಸ್-ಫಾರ್ಮ್ ಮಾರುಕಟ್ಟೆ ತಂತ್ರ',
                     marketStrategyDesc: 'ಮಾರುಕಟ್ಟೆ ಸಂತೃಪ್ತಿಯನ್ನು ತಡೆಯಲು ಮತ್ತು ಬೆಲೆಗಳನ್ನು ಗರಿಷ್ಠಗೊಳಿಸಲು, ಫಾರ್ಮ್ಗಳಿಗೆ ವಿಭಿನ್ನ ಬೆಳೆಗಳನ್ನು ನಿಗದಿಪಡಿಸಲಾಗಿದೆ:',
-                    outOf: '100 ರಲ್ಲಿ',
                     perHectare: 'ಪ್ರತಿ ಕ್ವಿಂಟಲ್',
                     tonnesPerHectare: 'ಟನ್/ಹೆಕ್ಟೇರ್',
                     estProfit: 'ಅಂದಾಜು ಲಾಭ/ಹೆ'
@@ -1409,7 +1394,6 @@
                     defects: 'ದೋಷಗಳು',
                     delays: 'ವಿಳಂಬಗಳು',
                     waste: 'ಕಸ',
-                    satisfaction: 'ತೃಪ್ತಿ',
                     pestRisk: 'ಕೀಟ ಅಪಾಯ',
                     machineryUptime: 'ಯಂತ್ರೋಪಕರಣ ಅಪ್ಟೈಮ್',
                     harvestUptime: 'ಕೊಯ್ಲು ಅಪ್ಟೈಮ್',
@@ -1703,8 +1687,6 @@
                     loadTransportationData();
                 } else if (sectionId === 'retail') {
                     loadRetailData();
-                } else if (sectionId === 'consumption') {
-                    loadConsumptionData();
                 } else if (sectionId === 'waste') {
                     loadWasteData();
                 } else if (sectionId === 'recommendation') {
@@ -2175,8 +2157,7 @@
                 const defectsIcon = getIcon('defects', 'sm');
                 const transportationIcon = getIcon('transportation', 'sm');
                 const wasteIcon = getIcon('waste_icon', 'sm');
-                const satisfactionIcon = getIcon('satisfaction', 'sm');
-                
+               
                 farms.forEach(farm => {
                     const farmData = data[farm];
                     const perfClass = getPerformanceClass(farmData.performance_score);
@@ -2212,10 +2193,6 @@
                                 <div class="metric-row">
                                     <span class="metric-label">${wasteIcon} ${t('metrics.waste')}</span>
                                     <span class="metric-value">${farmData.waste.toFixed(2)}${t('units.percent')}</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">${satisfactionIcon} ${t('metrics.satisfaction')}</span>
-                                    <span class="metric-value">${farmData.satisfaction.toFixed(1)}${t('units.per10')}</span>
                                 </div>
                                 <div class="metric-row" style="border-top: 2px solid #ecf0f1; padding-top: 10px; margin-top: 10px;">
                                     <span class="metric-label">🌱 ${t('metrics.carbonFootprint')}</span>
@@ -2379,7 +2356,6 @@
                 const defectsIcon = getIcon('defects', 'sm');
                 const transportationIcon = getIcon('transportation', 'sm');
                 const wasteIcon = getIcon('waste_icon', 'sm');
-                const satisfactionIcon = getIcon('satisfaction', 'sm');
                 const pestIcon = getIcon('pest', 'sm');
                 const machineryIcon = getIcon('machinery', 'sm');
                 
@@ -2420,10 +2396,6 @@
                                     <div class="metric-row">
                                         <span class="metric-label">${wasteIcon} ${t('metrics.waste')}</span>
                                         <span class="metric-value">${data.waste_percentage.toFixed(2)}${t('units.percent')}</span>
-                                    </div>
-                                    <div class="metric-row">
-                                        <span class="metric-label">${satisfactionIcon} ${t('metrics.satisfaction')}</span>
-                                        <span class="metric-value">${data.satisfaction.toFixed(1)}${t('units.per10')}</span>
                                     </div>
                                     <div class="metric-row">
                                         <span class="metric-label">${pestIcon} ${t('metrics.pestRisk')}</span>
@@ -2522,17 +2494,19 @@
         }
 
         function calculatePerformanceScore(data) {
-            const score = (
+            // Performance score without satisfaction metric; rescaled to 0-100
+            const rawScore = (
                 (data.total_production / 10 * 20) +
                 ((1 - data.storage_spoilage / 30) * 15) +
                 ((1 - data.processing_defects / 15) * 15) +
                 ((1 - data.transport_delays / 30) * 10) +
                 ((1 - data.waste_percentage / 25) * 10) +
-                (data.satisfaction / 10 * 15) +
                 ((1 - data.pest_risk / 100) * 10) +
                 (data.machinery_uptime / 100 * 5)
             );
-            return Math.min(100, Math.max(0, score));
+            // Remaining weights sum to 85; scale up to 100
+            const scaledScore = rawScore * (100 / 85);
+            return Math.min(100, Math.max(0, scaledScore));
         }
 
         async function loadComparisonProduction() {
@@ -3557,191 +3531,7 @@
             }
         }
 
-        async function loadComparisonConsumption() {
-            try {
-                const [comparisonData, aiData] = await Promise.all([
-                    fetch('/api/comparison/consumption').then(r => {
-                        if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
-                        return r.json();
-                    }),
-                    loadAIInsights('consumption').catch(() => ({ insights: [], recommendations: [], farm_insights: {} }))
-                ]);
-
-                const farms = Object.keys(comparisonData);
-                // Fetch carbon footprint for all farms
-                const carbonFootprints = {};
-                await Promise.all(farms.map(async (farm) => {
-                    try {
-                        const kpis = await fetch(`/api/farm/${farm}/kpis`).then(r => r.json());
-                        carbonFootprints[farm] = kpis.carbon_footprint || { total: 0 };
-                    } catch (e) {
-                        carbonFootprints[farm] = { total: 0 };
-                    }
-                }));
-
-                let html = '';
-                
-                farms.forEach(farm => {
-                    const data = comparisonData[farm];
-                    if (!data) {
-                        console.error(`No data for farm: ${farm}`);
-                        return;
-                    }
-                    const insight = aiData.farm_insights && aiData.farm_insights[farm] ? aiData.farm_insights[farm] : 'All metrics optimal';
-                    const avg_satisfaction = data.avg_satisfaction || 0;
-                    const avg_household_waste = data.avg_household_waste || 0;
-                    const avg_recipe_accuracy = data.avg_recipe_accuracy || 0;
-                    const perfScore = avg_satisfaction > 8 ? 80 : avg_satisfaction > 7 ? 65 : 50;
-                    const perfClass = getPerformanceClass(perfScore);
-                    const farmIcon = getIcon('farm', 'lg');
-                    const satisfactionIcon = getIcon('satisfaction', 'sm');
-                    const householdIcon = getIcon('household', 'sm');
-                    const processingIcon = getIcon('processing', 'sm');
-                    const carbonFootprint = carbonFootprints[farm] || { total: 0 };
-                    
-                    html += `
-                        <div class="farm-card ${perfClass}">
-                            <div class="farm-card-header">
-                                <h3>${farmIcon} ${farm}</h3>
-                                <div class="performance-score-container">
-                                    <span class="performance-score">${perfScore.toFixed(0)}</span>
-                                    <span class="performance-score-label">/100</span>
-                                </div>
-                                <span class="status-badge ${perfClass}">${getStatusText(perfScore)}</span>
-                            </div>
-                            <div class="farm-card-body">
-                                <div class="metric-row">
-                                    <span class="metric-label">${satisfactionIcon} Satisfaction</span>
-                                    <span class="metric-value">${avg_satisfaction.toFixed(1)}/10</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">${householdIcon} Household Waste</span>
-                                    <span class="metric-value">${avg_household_waste.toFixed(2)} kg</span>
-                                </div>
-                                <div class="metric-row">
-                                    <span class="metric-label">${processingIcon} Recipe Accuracy</span>
-                                    <span class="metric-value">${avg_recipe_accuracy.toFixed(2)}%</span>
-                                </div>
-                            </div>
-                        </div>`;
-                });
-                
-                const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All farms performing well'];
-                const recommendations = aiData.recommendations || [];
-                const aiSuggestionHTML = createAISuggestion('AI Comparison', insights, recommendations, true);
-                
-                document.getElementById('consumption-container').innerHTML = `
-                    <div class="farm-comparison">
-                        ${html}
-                    </div>
-                    <div class="ai-suggestion-box side-by-side" id="consumptionSuggestion">${aiSuggestionHTML}</div>
-                `;
-                
-                const ctx = document.getElementById('consumptionChart1').getContext('2d');
-                if (charts.consumptionChart1) charts.consumptionChart1.destroy();
-                charts.consumptionChart1 = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: farms,
-                        datasets: [{
-                            label: 'Satisfaction',
-                            data: farms.map(f => comparisonData[f].avg_satisfaction),
-                            backgroundColor: ['#27ae60', '#3498db', '#e74c3c', '#f39c12']
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false }
-                });
-            } catch (err) {
-                console.error('Error loading comparison data:', err);
-                document.getElementById('consumption-container').innerHTML = '<p>Error loading data.</p>';
-            }
-        }
-
-        async function loadConsumptionData() {
-            if (currentFarm === 'all') {
-                loadComparisonConsumption();
-                return;
-            }
-            
-            try {
-                const [data, kpisData, aiData] = await Promise.all([
-                    fetch(`/api/farm/${currentFarm}/consumption`).then(r => r.json()),
-                    fetch(`/api/farm/${currentFarm}/kpis`).then(r => r.json()),
-                    loadAIInsights('consumption')
-                ]);
-                const carbonFootprint = kpisData.carbon_footprint || { total: 0 };
-                
-                const perfScore = data.avg_satisfaction > 8 ? 85 : data.avg_satisfaction > 7 ? 70 : data.avg_satisfaction > 6 ? 55 : 40;
-                const perfClass = getPerformanceClass(perfScore);
-                const farmIcon = getIcon('farm', 'lg');
-                const satisfactionIcon = getIcon('satisfaction', 'sm');
-                const householdIcon = getIcon('household', 'sm');
-                const processingIcon = getIcon('processing', 'sm');
-                
-                const insights = aiData.insights && aiData.insights.length > 0 ? aiData.insights : ['All metrics optimal'];
-                const recommendations = aiData.recommendations || [];
-                const aiSuggestionHTML = createAISuggestion('AI Analysis', insights, recommendations);
-                
-                // Create side-by-side layout: Farm card and AI box
-                document.getElementById('consumption-container').innerHTML = `
-                    <div class="farm-stage-container">
-                        <div class="farm-stage-cards">
-                            <div class="farm-card ${perfClass}">
-                                <div class="farm-card-header">
-                                    <h3>${farmIcon} ${currentFarm}</h3>
-                                    <div class="performance-score-container">
-                                        <span class="performance-score">${perfScore.toFixed(0)}</span>
-                                        <span class="performance-score-label">/100</span>
-                                    </div>
-                                    <span class="status-badge ${perfClass}">${getStatusText(perfScore)}</span>
-                                </div>
-                                <div class="farm-card-body">
-                                    <div class="metric-row">
-                                        <span class="metric-label">${satisfactionIcon} Satisfaction</span>
-                                        <span class="metric-value">${data.avg_satisfaction.toFixed(1)}/10</span>
-                                    </div>
-                                    <div class="metric-row">
-                                        <span class="metric-label">${householdIcon} Household Waste</span>
-                                        <span class="metric-value">${data.avg_household_waste.toFixed(2)} kg</span>
-                                    </div>
-                                    <div class="metric-row">
-                                        <span class="metric-label">${processingIcon} Recipe Accuracy</span>
-                                        <span class="metric-value">${data.avg_recipe_accuracy.toFixed(2)}%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ai-suggestion-box" id="consumptionSuggestion">${aiSuggestionHTML}</div>
-                        </div>
-                    </div>
-                `;
-                
-                const ctx = document.getElementById('consumptionChart1').getContext('2d');
-                if (charts.consumptionChart1) charts.consumptionChart1.destroy();
-                charts.consumptionChart1 = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Household Waste (kg)', 'Recipe Accuracy (%)', 'Satisfaction (/10)'],
-                        datasets: [{
-                            label: 'Consumption Metrics',
-                            data: [data.avg_household_waste, data.avg_recipe_accuracy, data.avg_satisfaction * 10],
-                            backgroundColor: ['#e74c3c', '#3498db', '#27ae60']
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-            } catch (err) {
-                console.error('Error loading consumption data:', err);
-                document.getElementById('consumption-container').innerHTML = '<p>Error loading data. Please ensure the farm CSV file exists.</p>';
-            }
-        }
+        // Consumption-specific charts and views have been removed
 
         async function loadComparisonWaste() {
             try {
@@ -3946,7 +3736,6 @@
             document.getElementById('sidebar-transportation-icon').innerHTML = getIcon('transportation', 'lg');
             document.getElementById('sidebar-retail-icon').innerHTML = getIcon('retail', 'lg');
             document.getElementById('sidebar-price-icon').innerHTML = getIcon('sales', 'lg');
-            document.getElementById('sidebar-consumption-icon').innerHTML = getIcon('consumption', 'lg');
             document.getElementById('sidebar-waste-icon').innerHTML = getIcon('waste', 'lg');
             document.getElementById('sidebar-security-icon').innerHTML = getIcon('security', 'lg');
             
@@ -3958,7 +3747,6 @@
             document.getElementById('transportation-title-icon').innerHTML = getIcon('transportation', 'xl');
             document.getElementById('retail-title-icon').innerHTML = getIcon('retail', 'xl');
             document.getElementById('price-title-icon').innerHTML = getIcon('sales', 'xl');
-            document.getElementById('consumption-title-icon').innerHTML = getIcon('consumption', 'xl');
             document.getElementById('waste-title-icon').innerHTML = getIcon('waste', 'xl');
             document.getElementById('security-title-icon').innerHTML = getIcon('security', 'xl');
             
@@ -3971,7 +3759,6 @@
             document.getElementById('transportation-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('retail-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('price-sparkle-icon').innerHTML = sparkleIcon;
-            document.getElementById('consumption-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('waste-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('security-sparkle-icon').innerHTML = sparkleIcon;
             
@@ -3985,7 +3772,6 @@
             document.getElementById('processing-chart-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('transportation-chart-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('retail-chart-sparkle-icon').innerHTML = sparkleIcon;
-            document.getElementById('consumption-chart-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('waste-chart-sparkle-icon').innerHTML = sparkleIcon;
             document.getElementById('price-chart-sparkle-icon').innerHTML = sparkleIcon;
             
@@ -3995,7 +3781,6 @@
             document.getElementById('processing-button-icon').innerHTML = sparkleIcon;
             document.getElementById('transportation-button-icon').innerHTML = sparkleIcon;
             document.getElementById('retail-button-icon').innerHTML = sparkleIcon;
-            document.getElementById('consumption-button-icon').innerHTML = sparkleIcon;
             document.getElementById('waste-button-icon').innerHTML = sparkleIcon;
             
             // Header AI icon
@@ -4815,7 +4600,6 @@
                         <div style="background: #f5f7fa; padding: 12px; border-radius: 8px;">
                             <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px; text-transform: uppercase;">Profitability</div>
                             <div style="font-size: 20px; font-weight: bold; color: #1a5f7a;">${rec.profitability_score}</div>
-                            <div style="font-size: 10px; color: #95a5a6;">/100</div>
                         </div>
                         <div style="background: #f5f7fa; padding: 12px; border-radius: 8px;">
                             <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px; text-transform: uppercase;">Price</div>
@@ -4894,7 +4678,6 @@
                     <div style="background: white; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 8px; text-transform: uppercase;">Profitability Score</div>
                         <div style="font-size: 28px; font-weight: bold; color: #667eea;">${data.recommendation_score}</div>
-                        <div style="font-size: 11px; color: #95a5a6; margin-top: 5px;">out of 100</div>
                     </div>
 
                     <div style="background: white; padding: 20px; border-radius: 12px; border-left: 4px solid #27ae60; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
